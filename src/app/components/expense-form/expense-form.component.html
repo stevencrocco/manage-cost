@@ -1,0 +1,94 @@
+<div class="form-container">
+  <div class="page-header">
+    <div>
+      <h1>{{ isEditMode ? 'Modifica movimento' : 'Nuovo movimento' }}</h1>
+      <p>I campi con * sono obbligatori</p>
+    </div>
+  </div>
+
+  <div class="card form-card">
+
+    <form (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label>Tipo *</label>
+        <div class="type-toggle" role="group" aria-label="Tipo di movimento">
+          <button type="button" [class.active]="expense.type === 'uscita'" (click)="setType('uscita')"><lucide-icon [img]="I.expenseArrow" [size]="15" />Uscita</button>
+          <button type="button" [class.active]="expense.type === 'entrata'" (click)="setType('entrata')"><lucide-icon [img]="I.incomeArrow" [size]="15" />Entrata</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Descrizione *</label>
+        <input
+          type="text"
+          id="description"
+          [(ngModel)]="expense.description"
+          name="description"
+          placeholder="Es. Spesa al supermercato"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="amount">Importo (€) *</label>
+        <input
+          type="number"
+          id="amount"
+          [(ngModel)]="expense.amount"
+          name="amount"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="category">Categoria *</label>
+        <select id="category" [(ngModel)]="expense.category" name="category" required>
+          <option *ngFor="let category of getCategoriesForType()" [value]="category.name">
+            {{ category.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="paidBy">{{ expense.type === 'entrata' ? 'Ricevuto da' : 'Pagato da' }} *</label>
+        <select id="paidBy" [(ngModel)]="expense.paidBy" name="paidBy" required>
+          <option *ngFor="let member of familyMembers" [value]="member.name">
+            {{ member.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="date">Data *</label>
+        <input
+          type="date"
+          id="date"
+          [(ngModel)]="expense.date"
+          name="date"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="notes">Note</label>
+        <textarea
+          id="notes"
+          [(ngModel)]="expense.notes"
+          name="notes"
+          rows="3"
+          placeholder="Note aggiuntive (opzionale)"
+        ></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" (click)="cancel()">Annulla</button>
+        <button type="submit" class="btn-submit">
+          {{ isEditMode ? 'Salva modifiche' : 'Aggiungi movimento' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

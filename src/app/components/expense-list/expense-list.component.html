@@ -1,0 +1,343 @@
+<div class="expense-list-container">
+  <div class="page-header">
+    <div>
+      <h1>Movimenti</h1>
+      <p>{{ expenses.length }} movimenti in archivio</p>
+    </div>
+  </div>
+
+  <!-- Barra filtri -->
+  <div class="card toolbar">
+    <div class="quick-bar">
+      <div class="segmented" role="group" aria-label="Tipo di movimento">
+        <button [class.active]="typeFilter === 'all'" (click)="typeFilter = 'all'; applyFilters()">Tutti</button>
+        <button [class.active]="typeFilter === 'uscita'" (click)="typeFilter = 'uscita'; applyFilters()">Uscite</button>
+        <button [class.active]="typeFilter === 'entrata'" (click)="typeFilter = 'entrata'; applyFilters()">Entrate</button>
+      </div>
+
+      <select class="period-quick" [ngModel]="period" (ngModelChange)="setPeriod($event)" aria-label="Periodo">
+        <option *ngFor="let p of periods" [value]="p.value">{{ p.label }}</option>
+      </select>
+
+      <div class="search-box">
+        <lucide-icon class="search-icon" [img]="I.search" [size]="16" />
+        <input type="search" [(ngModel)]="searchText" (ngModelChange)="applyFilters()" placeholder="Cerca descrizione, esercente, note" />
+      </div>
+
+      <button class="btn-filters" (click)="toggleFilters()" [class.active]="showFilters">
+        <lucide-icon [img]="I.filters" [size]="16" />
+        Filtri
+        <span class="filter-badge" *ngIf="getActiveFiltersCount() > 0">{{ getActiveFiltersCount() }}</span>
+      </button>
+
+      <button *ngIf="getReviewCount() > 0" class="btn-review" [class.active]="onlyToReview"
+              (click)="onlyToReview = !onlyToReview; applyFilters()">
+        <lucide-icon class="warn-icon" [img]="I.warning" [size]="15" /> Da revisionare · {{ getReviewCount() }}
+      </button>
+
+      <button *ngIf="hasActiveFilters()" class="btn-link clear-link" (click)="clearFilters()">Cancella filtri</button>
+    </div>
+
+    <!-- Date personalizzate -->
+    <div class="custom-dates" *ngIf="period === 'custom'">
+      <label>Dal <input type="date" [(ngModel)]="dateFrom" (ngModelChange)="onCustomDateChange()" /></label>
+      <label>Al <input type="date" [(ngModel)]="dateTo" (ngModelChange)="onCustomDateChange()" /></label>
+    </div>
+
+    <!-- Filtri avanzati -->
+    <div class="advanced-filters" *ngIf="showFilters">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="member-filter">Pagato da</label>
+          <select id="member-filter" [(ngModel)]="selectedMember" (ngModelChange)="applyFilters()">
+            <option value="all">Tutti</option>
+            <option *ngFor="let member of getMembers()" [value]="member">{{ member }}</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="card-filter">Carta / conto</label>
+          <select id="card-filter" [(ngModel)]="selectedCard" (ngModelChange)="applyFilters()">
+            <option value="all">Tutti</option>
+            <option *ngFor="let c of getCards()" [value]="c">{{ cardLabel(c) }}</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="transfer-filter">Ricariche e trasferimenti</label>
+          <select id="transfer-filter" [(ngModel)]="transfers" (ngModelChange)="applyFilters()">
+            <option value="show">Mostra (non contano nei totali)</option>
+            <option value="hide">Nascondi</option>
+            <option value="only">Solo trasferimenti</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="min-amount">Importo da (€)</label>
+          <input type="number" id="min-amount" [(ngModel)]="minAmount" (ngModelChange)="applyFilters()" placeholder="0" step="0.01" min="0" />
+        </div>
+
+        <div class="filter-group">
+          <label for="max-amount">Importo a (€)</label>
+          <input type="number" id="max-amount" [(ngModel)]="maxAmount" (ngModelChange)="applyFilters()" placeholder="Nessun limite" step="0.01" min="0" />
+        </div>
+
+        <div class="filter-group">
+          <label>Periodo personalizzato</label>
+          <div class="date-pair">
+            <input type="date" [(ngModel)]="dateFrom" (ngModelChange)="onCustomDateChange()" aria-label="Dal" />
+            <input type="date" [(ngModel)]="dateTo" (ngModelChange)="onCustomDateChange()" aria-label="Al" />
+          </div>
+        </div>
+      </div>
+
+      <div class="category-chips">
+        <span class="chips-label">Categorie</span>
+        <button *ngFor="let c of getCategoryOptions()" class="chip" [class.selected]="isCategorySelected(c.name)" (click)="toggleCategory(c.name)">
+          <app-category-icon [icon]="c.icon" [name]="c.name" [color]="c.color" size="sm" />{{ c.name }}
+        </button>
+        <button *ngIf="selectedCategories.length" class="btn-link" (click)="selectedCategories = []; applyFilters()">Tutte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Riepilogo del risultato filtrato -->
+  <div class="totals-bar">
+    <div class="total-item">
+      <span class="total-label">Entrate</span>
+      <span class="total-value pos">{{ formatCurrency(totals.income) }}</span>
+    </div>
+    <div class="total-item">
+      <span class="total-label">Uscite</span>
+      <span class="total-value neg">{{ formatCurrency(totals.expenses) }}</span>
+    </div>
+    <div class="total-item">
+      <span class="total-label">Saldo</span>
+      <span class="total-value" [class.pos]="totals.balance >= 0" [class.neg]="totals.balance < 0">{{ formatCurrency(totals.balance) }}</span>
+    </div>
+    <div class="total-item" *ngIf="totals.transferCount > 0">
+      <span class="total-label">Esclusi dai totali · {{ totals.transferCount }}</span>
+      <span class="total-value muted">{{ formatCurrency(totals.transfers) }}</span>
+    </div>
+  </div>
+
+  <!-- Risultati e vista -->
+  <div class="results-info">
+    <span class="results-count">{{ filteredExpenses.length }} di {{ expenses.length }} movimenti</span>
+    <div class="view-controls">
+      <label class="group-toggle" *ngIf="viewMode === 'table'">
+        <input type="checkbox" [checked]="groupByCategory" (change)="toggleGrouping()" /> Raggruppa per categoria
+      </label>
+      <div class="segmented small" role="group" aria-label="Vista">
+        <button [class.active]="viewMode === 'table'" (click)="setViewMode('table')">Tabella</button>
+        <button [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')">Schede</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vista schede -->
+  <div class="expenses-grid" *ngIf="viewMode === 'cards' && filteredExpenses.length > 0">
+    <div class="card expense-card row-link" *ngFor="let expense of pageItems" [class.is-transfer]="expense.isTransfer" (click)="detail.openFromRow($event, expense.id)" tabindex="0" (keydown.enter)="detail.openFromRow($event, expense.id)">
+      <div class="expense-header">
+        <app-category-icon [icon]="getCategoryIcon(expense.category)" [name]="expense.category" [color]="getCategoryColor(expense.category)" size="lg" />
+        <div class="expense-title">
+          <span class="expense-date">{{ formatDate(expense.date) }}</span>
+          <h3>{{ expense.description }}</h3>
+        </div>
+        <span class="expense-amount" [ngClass]="amountClass(expense)">{{ formatSigned(expense) }}</span>
+      </div>
+
+      <div class="expense-details">
+        <select class="inline-category" [ngModel]="expense.category" (ngModelChange)="changeCategory(expense, $event)" aria-label="Categoria">
+          <option *ngFor="let c of getCategoriesForType(expense)" [value]="c.name">{{ c.name }}</option>
+        </select>
+        <div class="badges">
+          <span class="badge badge-warn" *ngIf="expense.needsReview">Da revisionare</span>
+          <span class="badge" *ngIf="expense.isTransfer">{{ isTopUp(expense) ? 'Ricarica carta · esclusa' : 'Trasferimento' }}</span>
+        </div>
+        <div class="expense-meta">{{ expense.paidBy }}<span *ngIf="expense.card"> · {{ cardLabel(expense.card) }}</span></div>
+        <div class="expense-meta" *ngIf="expense.notes">{{ expense.notes }}</div>
+        <div class="bank-desc" *ngIf="expense.bankDescription">{{ expense.bankDescription }}</div>
+      </div>
+
+      <div class="expense-actions">
+        <button class="btn-link" (click)="editExpense(expense.id)">Modifica</button>
+        <button *ngIf="!isTopUp(expense)" class="btn-link" (click)="toggleTransfer(expense)">
+          {{ expense.isTransfer ? 'Conta nei totali' : 'Escludi dai totali' }}
+        </button>
+        <button class="btn-link danger-link" (click)="deleteExpense(expense.id)">Elimina</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grand-total" *ngIf="viewMode === 'cards' && filteredExpenses.length > 0">
+    <span class="grand-total-label">Totale · {{ filteredExpenses.length }} movimenti filtrati</span>
+    <span class="grand-total-detail">Entrate <span class="pos">{{ formatCurrency(totals.income) }}</span> · Uscite <span class="neg">{{ formatCurrency(totals.expenses) }}</span><ng-container *ngIf="totals.transferCount > 0"> · Esclusi {{ formatCurrency(totals.transfers) }}</ng-container></span>
+    <span class="grand-total-value" [class.pos]="totals.balance >= 0" [class.neg]="totals.balance < 0">{{ formatCurrency(totals.balance) }}</span>
+  </div>
+
+  <!-- Vista tabella -->
+  <div *ngIf="viewMode === 'table' && filteredExpenses.length > 0">
+    <div *ngIf="!groupByCategory" class="card table-card">
+      <div class="table-wrapper">
+        <table class="data-table expenses-table">
+          <thead>
+            <tr>
+              <th (click)="sortBy('date')" class="sortable">Data <span class="sort-icon">{{ sortIcon('date') }}</span></th>
+              <th (click)="sortBy('description')" class="sortable">Descrizione <span class="sort-icon">{{ sortIcon('description') }}</span></th>
+              <th (click)="sortBy('category')" class="sortable">Categoria <span class="sort-icon">{{ sortIcon('category') }}</span></th>
+              <th (click)="sortBy('paidBy')" class="sortable hide-mobile">Pagato da <span class="sort-icon">{{ sortIcon('paidBy') }}</span></th>
+              <th (click)="sortBy('amount')" class="sortable num">Importo <span class="sort-icon">{{ sortIcon('amount') }}</span></th>
+              <th class="actions-col"><span class="sr-only">Azioni</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let expense of pageItems">
+              <tr class="row-link" [class.is-transfer]="expense.isTransfer" [class.needs-review]="expense.needsReview" (click)="detail.openFromRow($event, expense.id)" tabindex="0" (keydown.enter)="detail.openFromRow($event, expense.id)">
+                <td class="nowrap muted">{{ formatDate(expense.date) }}</td>
+                <td class="desc-cell">
+                  <button class="desc-link" (click)="openDetails(expense.id)" title="Apri i dettagli">{{ expense.description }}</button>
+                  <span class="badge badge-warn" *ngIf="expense.needsReview">Da revisionare</span>
+                  <span class="badge" *ngIf="expense.isTransfer">{{ isTopUp(expense) ? 'Ricarica carta · esclusa' : 'Trasferimento' }}</span>
+                  <div class="table-notes" *ngIf="expense.notes">{{ expense.notes }}</div>
+                </td>
+                <td>
+                  <div class="category-select">
+                    <app-category-icon [icon]="getCategoryIcon(expense.category)" [name]="expense.category" [color]="getCategoryColor(expense.category)" size="sm" />
+                    <select class="inline-category" [ngModel]="expense.category" (ngModelChange)="changeCategory(expense, $event)" aria-label="Categoria">
+                      <option *ngFor="let c of getCategoriesForType(expense)" [value]="c.name">{{ c.name }}</option>
+                    </select>
+                  </div>
+                </td>
+                <td class="hide-mobile muted">{{ expense.paidBy }}</td>
+                <td class="num amount-cell" [ngClass]="amountClass(expense)">{{ formatSigned(expense) }}</td>
+                <td class="actions-col">
+                  <div class="table-actions">
+                    <button *ngIf="!isTopUp(expense)" class="icon-btn" [class.active]="expense.isTransfer" (click)="toggleTransfer(expense)"
+                            [title]="expense.isTransfer ? 'Conta nei totali' : 'Escludi dai totali (trasferimento)'">
+                      <lucide-icon [img]="I.transfer" [size]="15" />
+                    </button>
+                    <button class="icon-btn" (click)="editExpense(expense.id)" title="Modifica">
+                      <lucide-icon [img]="I.edit" [size]="15" />
+                    </button>
+                    <button class="icon-btn danger" (click)="deleteExpense(expense.id)" title="Elimina">
+                      <lucide-icon [img]="I.delete" [size]="15" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4">
+                Totale · {{ filteredExpenses.length }} movimenti filtrati
+                <span class="total-breakdown">
+                  Entrate <span class="pos">{{ formatCurrency(totals.income) }}</span>
+                  · Uscite <span class="neg">{{ formatCurrency(totals.expenses) }}</span>
+                  <ng-container *ngIf="totals.transferCount > 0"> · Esclusi {{ formatCurrency(totals.transfers) }}</ng-container>
+                  <ng-container *ngIf="getTotalPages() > 1"> · su tutte le {{ getTotalPages() }} pagine</ng-container>
+                </span>
+              </td>
+              <td class="num" [class.pos]="totals.balance >= 0" [class.neg]="totals.balance < 0">{{ formatCurrency(totals.balance) }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Raggruppata per categoria -->
+    <div *ngIf="groupByCategory" class="grouped">
+      <div *ngFor="let group of groupedItems" class="card table-card category-group">
+        <div class="category-group-header">
+          <app-category-icon [icon]="getCategoryIcon(group.category)" [name]="group.category" [color]="getCategoryColor(group.category)" />
+          <h3>{{ group.category }}</h3>
+          <span class="badge">{{ group.expenses.length }}</span>
+          <span class="category-group-total" [class.pos]="group.total > 0" [class.neg]="group.total < 0">{{ formatCurrency(group.total) }}</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table expenses-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrizione</th>
+                <th class="hide-mobile">Pagato da</th>
+                <th class="num">Importo</th>
+                <th class="actions-col"><span class="sr-only">Azioni</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let expense of group.expenses" class="row-link" [class.is-transfer]="expense.isTransfer" (click)="detail.openFromRow($event, expense.id)" tabindex="0" (keydown.enter)="detail.openFromRow($event, expense.id)">
+                <td class="nowrap muted">{{ formatDate(expense.date) }}</td>
+                <td class="desc-cell">
+                  {{ expense.description }}
+                  <div class="table-notes" *ngIf="expense.notes">{{ expense.notes }}</div>
+                </td>
+                <td class="hide-mobile muted">{{ expense.paidBy }}</td>
+                <td class="num amount-cell" [ngClass]="amountClass(expense)">{{ formatSigned(expense) }}</td>
+                <td class="actions-col">
+                  <div class="table-actions">
+                    <button class="icon-btn" (click)="editExpense(expense.id)" title="Modifica">
+                      <lucide-icon [img]="I.edit" [size]="15" />
+                    </button>
+                    <button class="icon-btn danger" (click)="deleteExpense(expense.id)" title="Elimina">
+                      <lucide-icon [img]="I.delete" [size]="15" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">Totale {{ group.category }} · {{ group.expenses.length }} movimenti</td>
+                <td class="num" [class.pos]="group.total >= 0" [class.neg]="group.total < 0">{{ formatCurrency(group.total) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="grand-total">
+        <span class="grand-total-label">Totale · {{ filteredExpenses.length }} movimenti filtrati</span>
+        <span class="grand-total-detail">Entrate <span class="pos">{{ formatCurrency(totals.income) }}</span> · Uscite <span class="neg">{{ formatCurrency(totals.expenses) }}</span><ng-container *ngIf="totals.transferCount > 0"> · Esclusi {{ formatCurrency(totals.transfers) }}</ng-container></span>
+        <span class="grand-total-value" [class.pos]="totals.balance >= 0" [class.neg]="totals.balance < 0">{{ formatCurrency(totals.balance) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paginazione -->
+  <div class="pagination" *ngIf="!(viewMode === 'table' && groupByCategory) && filteredExpenses.length > 0">
+    <div class="items-per-page">
+      <label for="per-page">Righe per pagina</label>
+      <select id="per-page" [(ngModel)]="itemsPerPage" (ngModelChange)="onItemsPerPageChange()">
+        <option [ngValue]="10">10</option>
+        <option [ngValue]="25">25</option>
+        <option [ngValue]="50">50</option>
+        <option [ngValue]="100">100</option>
+      </select>
+    </div>
+
+    <div class="page-buttons" *ngIf="getTotalPages() > 1">
+      <button class="page-btn" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1" aria-label="Pagina precedente">‹</button>
+      <button
+        *ngFor="let page of getPageNumbers()"
+        class="page-btn"
+        [class.active]="page === currentPage"
+        [class.ellipsis]="page === -1"
+        (click)="page !== -1 && goToPage(page)"
+        [disabled]="page === -1"
+      >{{ page === -1 ? '…' : page }}</button>
+      <button class="page-btn" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === getTotalPages()" aria-label="Pagina successiva">›</button>
+    </div>
+
+    <div class="pagination-info">Pagina {{ currentPage }} di {{ getTotalPages() || 1 }}</div>
+  </div>
+
+  <div class="card empty-state" *ngIf="filteredExpenses.length === 0">
+    <p *ngIf="expenses.length === 0">Nessun movimento. Importa l'Excel della banca dalle Impostazioni o aggiungine uno a mano.</p>
+    <p *ngIf="expenses.length > 0">Nessun movimento corrisponde ai filtri.</p>
+    <button class="btn-secondary" *ngIf="hasActiveFilters()" (click)="clearFilters()">Cancella filtri</button>
+  </div>
+</div>

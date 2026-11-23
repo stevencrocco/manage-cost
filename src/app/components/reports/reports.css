@@ -1,0 +1,58 @@
+.reports-container { display: flex; flex-direction: column; gap: 16px; }
+.reports-container .page-header { margin-bottom: 4px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.period-select { min-width: 160px; }
+
+.report-section { padding: 20px; }
+.report-section.flush { padding: 0; overflow: hidden; }
+.section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.section-head.padded { padding: 16px 20px 0; margin-bottom: 12px; align-items: baseline; }
+.section-hint { font-size: 12px; color: var(--text-3); }
+
+.chart-container-report { position: relative; height: 320px; }
+.table-wrapper { overflow-x: auto; }
+
+/* Quota per membro */
+.share-col { width: 220px; }
+.share { display: flex; align-items: center; gap: 10px; }
+.share-bar { flex: 1; height: 6px; background: var(--muted-soft); border-radius: 3px; overflow: hidden; }
+.share-fill { height: 100%; background: var(--primary); border-radius: 3px; }
+.share-value { width: 46px; text-align: right; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Budget */
+.budgets-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.budget-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.budget-card.over-budget { border-color: var(--neg); }
+.budget-header { display: flex; align-items: center; gap: 8px; }
+.budget-category { flex: 1; font-weight: 500; }
+.budget-input-group { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.input-suffix { position: relative; width: 130px; }
+.input-suffix input { width: 100%; padding-right: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+.input-suffix span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 13px; }
+.budget-progress { display: flex; align-items: center; gap: 10px; }
+.budget-progress-bar { flex: 1; height: 6px; background: var(--muted-soft); border-radius: 3px; overflow: hidden; }
+.budget-progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.budget-percentage { width: 40px; text-align: right; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.budget-stats { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-3); }
+.budget-stats strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.budget-note { font-size: 12.5px; font-weight: 500; padding: 6px 10px; border-radius: var(--radius-sm); }
+.budget-note.neg { background: var(--neg-soft); }
+.budget-note.warn { background: var(--warn-soft); color: var(--warn); }
+
+@media (max-width: 600px) {
+  .share-col { width: 140px; }
+  .chart-container-report { height: 260px; }
+}
+
+@media print {
+  .header-actions { display: none; }
+  .report-section { break-inside: avoid; box-shadow: none; }
+}

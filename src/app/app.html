@@ -1,0 +1,32 @@
+<div class="app-container">
+  <app-toast></app-toast>
+  <app-expense-detail />
+
+  <header class="app-header">
+    <div class="header-content">
+      <a routerLink="/dashboard" class="app-brand">
+        <span class="app-logo" aria-hidden="true">SF</span>
+        <span class="app-title">Spese Familiari</span>
+      </a>
+
+      <nav class="app-nav">
+        <a routerLink="/dashboard" routerLinkActive="active" class="nav-link"><lucide-icon [img]="I.dashboard" [size]="16" />Dashboard</a>
+        <a routerLink="/expenses" routerLinkActive="active" class="nav-link"><lucide-icon [img]="I.movements" [size]="16" />Movimenti</a>
+        <a routerLink="/reports" routerLinkActive="active" class="nav-link"><lucide-icon [img]="I.reports" [size]="16" />Report</a>
+        <a routerLink="/settings" routerLinkActive="active" class="nav-link"><lucide-icon [img]="I.settings" [size]="16" />Impostazioni</a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="icon-btn theme-toggle" (click)="toggleTheme()" [title]="isDarkMode ? 'Tema chiaro' : 'Tema scuro'"
+                [attr.aria-label]="isDarkMode ? 'Passa al tema chiaro' : 'Passa al tema scuro'">
+          <lucide-icon [img]="isDarkMode ? I.sun : I.moon" [size]="17" />
+        </button>
+        <a routerLink="/expense-form" class="btn-primary btn-add"><lucide-icon [img]="I.add" [size]="16" />Nuovo movimento</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <router-outlet />
+  </main>
+</div>

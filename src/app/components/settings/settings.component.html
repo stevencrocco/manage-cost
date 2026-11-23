@@ -1,0 +1,303 @@
+<div class="settings-container">
+  <div class="page-header">
+    <div>
+      <h1>Impostazioni</h1>
+      <p>Import dalla banca, membri, categorie e dati</p>
+    </div>
+  </div>
+
+  <!-- Movimenti bancari -->
+  <section class="card settings-section">
+    <div class="section-header">
+      <div>
+        <h2 class="title-icon"><lucide-icon [img]="I.spreadsheet" [size]="18" />Movimenti bancari</h2>
+        <p class="section-description">
+          Carica l'export "Movimenti" (.xlsx) della banca: entrate e uscite vengono categorizzate in automatico.
+          Puoi ricaricare export che si sovrappongono: i movimenti già presenti vengono saltati.
+        </p>
+      </div>
+    </div>
+
+    <div class="bank-steps">
+      <div class="bank-step">
+        <div class="step-number">1</div>
+        <div class="step-body">
+          <h3>Archivia i dati attuali <span class="step-optional">facoltativo</span></h3>
+          <p>Salva tutti i movimenti in un file <code>storico-spese-AAAA-MM-GG.json</code> nella cartella degli export (vedi Gestione dati) e li cancella dall'app.
+            Membri, categorie, regole e budget restano. Lo storico si può reimportare quando vuoi.</p>
+          <button class="btn-secondary" (click)="archiveAndClear()"><lucide-icon [img]="I.archive" [size]="16" />Archivia e svuota ({{ getMovementsCount() }} movimenti)</button>
+        </div>
+      </div>
+
+      <div class="bank-step">
+        <div class="step-number">2</div>
+        <div class="step-body">
+          <h3>Importa l'Excel della banca</h3>
+          <input type="file" id="bank-input" accept=".xlsx" (change)="onBankFileSelected($event)" hidden />
+          <button class="btn-primary" (click)="triggerBankInput()" [disabled]="bankLoading">
+            <lucide-icon [img]="I.upload" [size]="16" />
+            {{ bankLoading ? 'Lettura in corso…' : 'Scegli file .xlsx' }}
+          </button>
+          <div class="alert alert-error" *ngIf="bankError"><lucide-icon [img]="I.error" [size]="16" />{{ bankError }}</div>
+
+          <div class="bank-preview" *ngIf="bankPreview as p">
+            <h3>Anteprima · {{ bankFileName }}</h3>
+            <p class="muted">
+              Periodo {{ formatDate(p.from) }} – {{ formatDate(p.to) }}<span *ngIf="p.accountHolder"> · Intestatario {{ p.accountHolder }}</span>
+            </p>
+            <table class="data-table preview-table" *ngIf="stats as st">
+              <tbody>
+                <tr><td>Movimenti</td><td class="num">{{ st.total }}</td></tr>
+                <tr><td>Uscite reali · {{ st.expenses }}</td><td class="num neg">{{ formatCurrency(st.expensesSum) }}</td></tr>
+                <tr><td>Entrate · {{ st.income }}</td><td class="num pos">{{ formatCurrency(st.incomeSum) }}</td></tr>
+                <tr><td>Ricariche carta (escluse) · {{ st.transfers }}</td><td class="num muted">{{ formatCurrency(st.transfersSum) }}</td></tr>
+                <tr><td>Da revisionare</td><td class="num">{{ st.toReview }}</td></tr>
+                <tr><td>Non ancora contabilizzati</td><td class="num">{{ st.pending }}</td></tr>
+              </tbody>
+            </table>
+            <p class="preview-note">
+              Le ricariche della carta ricaricabile restano in archivio e nelle ricerche, ma <strong>non contano come uscite</strong>:
+              le uscite vere sono gli acquisti fatti con la carta.
+            </p>
+            <div class="preview-actions">
+              <button class="btn-primary" (click)="confirmBankImport()">Importa {{ p.movements.length }} movimenti</button>
+              <button class="btn-secondary" (click)="cancelBankImport()">Annulla</button>
+            </div>
+          </div>
+
+          <div class="alert alert-success" *ngIf="lastBankImport as r">
+            <lucide-icon class="ok" [img]="I.success" [size]="16" />
+            Importati <strong>{{ r.added }}</strong> movimenti
+            <span *ngIf="r.alreadyPresent">· {{ r.alreadyPresent }} già presenti saltati</span>
+            <span *ngIf="r.replacedPending">· {{ r.replacedPending }} provvisori aggiornati</span>
+            <span *ngIf="r.toReview">· <a routerLink="/expenses" [queryParams]="{ review: 1 }">{{ r.toReview }} da revisionare</a></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bank-step" *ngIf="cards.length > 0">
+        <div class="step-number">3</div>
+        <div class="step-body">
+          <h3>Chi usa ogni carta</h3>
+          <p>Il campo "Pagato da" dei movimenti importati segue questa scelta.</p>
+          <div class="card-owners">
+            <div class="card-owner-row" *ngFor="let c of cards; trackBy: trackCard">
+              <span class="card-label">{{ getCardLabel(c.card) }} <span class="muted">· {{ c.count }} movimenti</span></span>
+              <select [ngModel]="getCardOwner(c.card)" (ngModelChange)="setCardOwner(c.card, $event)" [attr.aria-label]="'Titolare ' + getCardLabel(c.card)">
+                <option *ngFor="let m of getFamilyMembers()" [value]="m.name">{{ m.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bank-step">
+        <div class="step-number step-number-muted">R</div>
+        <div class="step-body">
+          <h3>Regole di categoria</h3>
+          <p>
+            Quando nella lista correggi la categoria di un movimento con "applica a tutti", l'app ricorda l'esercente.
+            Regole personali salvate: <strong>{{ getRulesCount() }}</strong>.
+          </p>
+          <button class="btn-secondary" (click)="reapplyRules()"><lucide-icon [img]="I.refresh" [size]="16" />Riapplica le regole ai movimenti</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="settings-grid">
+    <!-- Membri -->
+    <section class="card settings-section">
+      <div class="section-header">
+        <div>
+          <h2 class="title-icon"><lucide-icon [img]="I.users" [size]="18" />Membri della famiglia</h2>
+          <p class="section-description">Persone a cui attribuire i movimenti</p>
+        </div>
+        <button class="btn-secondary" (click)="toggleAddMemberForm()">{{ showAddMemberForm ? 'Annulla' : 'Aggiungi' }}</button>
+      </div>
+
+      <div class="add-form" *ngIf="showAddMemberForm">
+        <div class="form-field">
+          <label for="new-member">Nome *</label>
+          <input id="new-member" type="text" [(ngModel)]="newMemberName" placeholder="Nome del membro" />
+        </div>
+        <div class="form-field">
+          <label>Colore</label>
+          <div class="swatches">
+            <button type="button" *ngFor="let color of availableColors" class="swatch" [class.selected]="newMemberColor === color"
+                    [style.background-color]="color" (click)="newMemberColor = color" [attr.aria-label]="'Colore ' + color"></button>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn-primary" (click)="addNewMember()">Salva membro</button></div>
+      </div>
+
+      <ul class="item-list">
+        <li class="list-item" *ngFor="let member of getFamilyMembers()">
+          <ng-container *ngIf="!isEditing(member.id); else editMember">
+            <span class="avatar" [style.background-color]="member.color">{{ member.name.charAt(0) }}</span>
+            <span class="item-name">{{ member.name }}</span>
+            <div class="item-actions">
+              <button class="icon-btn" (click)="startEditMember(member)" title="Modifica">
+                <lucide-icon [img]="I.edit" [size]="15" />
+              </button>
+              <button class="icon-btn danger" (click)="deleteMember(member)" title="Elimina">
+                <lucide-icon [img]="I.delete" [size]="15" />
+              </button>
+            </div>
+          </ng-container>
+          <ng-template #editMember>
+            <div class="item-edit">
+              <input type="text" [(ngModel)]="editingMemberName" placeholder="Nome" aria-label="Nome" />
+              <div class="swatches small">
+                <button type="button" *ngFor="let color of availableColors" class="swatch" [class.selected]="editingMemberColor === color"
+                        [style.background-color]="color" (click)="editingMemberColor = color" [attr.aria-label]="'Colore ' + color"></button>
+              </div>
+              <div class="edit-actions">
+                <button class="btn-save-small" (click)="saveEditMember()">Salva</button>
+                <button class="btn-cancel-small" (click)="cancelEditMember()">Annulla</button>
+              </div>
+            </div>
+          </ng-template>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Categorie -->
+    <section class="card settings-section">
+      <div class="section-header">
+        <div>
+          <h2 class="title-icon"><lucide-icon [img]="I.tags" [size]="18" />Categorie</h2>
+          <p class="section-description">Categorie di entrata e di uscita</p>
+        </div>
+        <button class="btn-secondary" (click)="toggleAddCategoryForm()">{{ showAddCategoryForm ? 'Annulla' : 'Aggiungi' }}</button>
+      </div>
+
+      <div class="add-form" *ngIf="showAddCategoryForm">
+        <div class="form-row">
+          <div class="form-field">
+            <label for="new-cat-type">Tipo</label>
+            <select id="new-cat-type" [(ngModel)]="newCategoryType">
+              <option value="uscita">Uscita</option>
+              <option value="entrata">Entrata</option>
+            </select>
+          </div>
+          <div class="form-field grow">
+            <label for="new-cat-name">Nome *</label>
+            <input id="new-cat-name" type="text" [(ngModel)]="newCategoryName" placeholder="Nome della categoria" />
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Icona</label>
+          <div class="icon-picker">
+            <button type="button" *ngFor="let key of availableIcons" class="icon-option" [class.selected]="newCategoryIcon === key"
+                    (click)="newCategoryIcon = key" [title]="key">
+              <app-category-icon [icon]="key" [color]="newCategoryColor" size="sm" />
+            </button>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Colore</label>
+          <div class="swatches">
+            <button type="button" *ngFor="let color of availableColors" class="swatch" [class.selected]="newCategoryColor === color"
+                    [style.background-color]="color" (click)="newCategoryColor = color" [attr.aria-label]="'Colore ' + color"></button>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn-primary" (click)="addNewCategory()">Salva categoria</button></div>
+      </div>
+
+      <ul class="item-list scroll">
+        <li class="list-item" *ngFor="let category of getCategories()">
+          <ng-container *ngIf="!isEditingCategory(category.id); else editCategory">
+            <app-category-icon [icon]="category.icon" [name]="category.name" [color]="category.color" />
+            <span class="item-name">{{ category.name }}</span>
+            <span class="badge" [class.badge-income]="category.type === 'entrata'">{{ category.type === 'entrata' ? 'Entrata' : 'Uscita' }}</span>
+            <div class="item-actions">
+              <button class="icon-btn" (click)="startEditCategory(category)" title="Modifica">
+                <lucide-icon [img]="I.edit" [size]="15" />
+              </button>
+              <button class="icon-btn danger" (click)="deleteCategory(category)" title="Elimina">
+                <lucide-icon [img]="I.delete" [size]="15" />
+              </button>
+            </div>
+          </ng-container>
+          <ng-template #editCategory>
+            <div class="item-edit">
+              <input type="text" [(ngModel)]="editingCategoryName" placeholder="Nome" aria-label="Nome" />
+              <div class="icon-picker">
+                <button type="button" *ngFor="let key of availableIcons" class="icon-option" [class.selected]="editingCategoryIcon === key"
+                        (click)="editingCategoryIcon = key" [title]="key">
+                  <app-category-icon [icon]="key" [color]="editingCategoryColor" size="sm" />
+                </button>
+              </div>
+              <div class="swatches small">
+                <button type="button" *ngFor="let color of availableColors" class="swatch" [class.selected]="editingCategoryColor === color"
+                        [style.background-color]="color" (click)="editingCategoryColor = color" [attr.aria-label]="'Colore ' + color"></button>
+              </div>
+              <div class="edit-actions">
+                <button class="btn-save-small" (click)="saveEditCategory()">Salva</button>
+                <button class="btn-cancel-small" (click)="cancelEditCategory()">Annulla</button>
+              </div>
+            </div>
+          </ng-template>
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- Dati -->
+  <section class="card settings-section">
+    <div class="section-header">
+      <div>
+        <h2 class="title-icon"><lucide-icon [img]="I.database" [size]="18" />Gestione dati</h2>
+        <p class="section-description">Esporta, importa o cancella i dati dell'applicazione</p>
+      </div>
+    </div>
+
+    <div class="export-folder">
+      <lucide-icon [img]="I.folder" [size]="18" />
+      <div class="export-folder-text">
+        <span class="export-folder-label">Cartella degli export</span>
+        @if (folder.serverActive()) {
+          <span><strong>data/storico</strong><span class="muted"> · salvataggio automatico nel progetto</span></span>
+        } @else if (!folder.supported) {
+          <span class="muted">Questo browser non permette di scegliere una cartella: i file vanno in Download. Usa Chrome o Edge per salvarli nel progetto.</span>
+        } @else if (folder.folderName(); as name) {
+          <span><strong>{{ name }}</strong><span class="muted"> · export e archivi vengono salvati qui</span></span>
+        } @else {
+          <span class="muted">Non ancora scelta: scegli la cartella <code>data/storico</code> del progetto</span>
+        }
+      </div>
+      @if (folder.supported && folder.serverActive() === false) {
+        <button class="btn-secondary" (click)="chooseExportFolder()">{{ folder.folderName() ? 'Cambia cartella' : 'Scegli cartella' }}</button>
+      }
+    </div>
+
+    <input type="file" id="file-input" accept=".json" (change)="onFileSelected($event)" hidden />
+    <div class="action-buttons">
+      <button class="btn-secondary" (click)="exportData()"><lucide-icon [img]="I.download" [size]="16" />Esporta dati (JSON)</button>
+      <button class="btn-secondary" (click)="triggerFileInput()"><lucide-icon [img]="I.upload" [size]="16" />Importa dati (JSON)</button>
+      <button class="btn-reset" (click)="resetAllData()"><lucide-icon [img]="I.delete" [size]="16" />Cancella tutti i dati</button>
+    </div>
+
+    <div class="notes-grid">
+      <div class="note">
+        <h3 class="title-icon"><lucide-icon [img]="I.info" [size]="15" />Come funziona l'importazione</h3>
+        <ul>
+          <li>Seleziona un file JSON esportato in precedenza</li>
+          <li>I movimenti del file si aggiungono a quelli esistenti</li>
+          <li>I movimenti già presenti (stesso id) vengono saltati</li>
+          <li>Le righe non valide vengono ignorate</li>
+        </ul>
+      </div>
+      <div class="note note-warn">
+        <h3 class="title-icon"><lucide-icon [img]="I.warning" [size]="15" />Attenzione</h3>
+        <p>La cancellazione dei dati è irreversibile. Esporta i dati prima di cancellarli.</p>
+      </div>
+    </div>
+
+    <dl class="storage-info">
+      <div><dt>Archivio</dt><dd>localStorage di questo browser (<code>familyExpenses</code>, <code>familyMembers</code>)</dd></div>
+      <div><dt>Disponibilità</dt><dd>Solo su questo browser e dispositivo</dd></div>
+    </dl>
+  </section>
+</div>

@@ -1,0 +1,85 @@
+@if (expense(); as e) {
+  <div class="backdrop" (click)="close()"></div>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+    <header class="dialog-head">
+      <app-category-icon [icon]="category(e)?.icon" [name]="e.category" [color]="category(e)?.color" size="lg" />
+      <div class="head-text">
+        <span class="head-date">{{ formatDate(e.date) }}</span>
+        <h2 id="detail-title">{{ e.description }}</h2>
+      </div>
+      <button class="icon-btn" (click)="close()" title="Chiudi (Esc)" aria-label="Chiudi">
+        <lucide-icon [img]="I.close" [size]="18" />
+      </button>
+    </header>
+
+    <div class="amount-row">
+      <span class="amount" [ngClass]="amountClass(e)">{{ signedAmount(e) }}</span>
+      <div class="badges">
+        <span class="badge" [class.badge-pos]="typeLabel(e) === 'Entrata'">{{ typeLabel(e) }}</span>
+        @if (isTopUp(e)) {
+          <span class="badge">Ricarica carta · esclusa dai totali</span>
+        } @else if (e.isTransfer) {
+          <span class="badge">Trasferimento · escluso dai totali</span>
+        }
+        @if (e.needsReview) {
+          <span class="badge badge-warn">Da revisionare</span>
+        }
+      </div>
+    </div>
+
+    <dl class="fields">
+      <div class="field">
+        <dt>Categoria</dt>
+        <dd>
+          <select [ngModel]="e.category" (ngModelChange)="changeCategory(e, $event)" aria-label="Categoria">
+            @for (c of categoriesFor(e); track c.id) {
+              <option [value]="c.name">{{ c.name }}</option>
+            }
+          </select>
+        </dd>
+      </div>
+      <div class="field"><dt>Pagato da</dt><dd>{{ e.paidBy || '—' }}</dd></div>
+      <div class="field"><dt>Carta / conto</dt><dd>{{ cardLabel(e.card) }}</dd></div>
+      <div class="field"><dt>Origine</dt><dd>{{ sourceLabel(e) }}</dd></div>
+      @if (e.bankType) {
+        <div class="field"><dt>Tipo operazione</dt><dd>{{ e.bankType }}</dd></div>
+      }
+      @if (e.bankStatus) {
+        <div class="field"><dt>Stato</dt><dd>{{ e.bankStatus }}</dd></div>
+      }
+      @if (e.merchant) {
+        <div class="field wide">
+          <dt>Esercente</dt>
+          <dd>
+            {{ e.description }}
+            @if (sameMerchant().count > 1) {
+              <button class="btn-link inline" (click)="showSameMerchant(e)">
+                {{ sameMerchant().count }} movimenti · {{ formatCurrency(sameMerchant().total) }} in totale
+              </button>
+            }
+          </dd>
+        </div>
+      }
+      @if (e.bankDescription) {
+        <div class="field wide"><dt>Descrizione originale della banca</dt><dd class="bank-text">{{ e.bankDescription }}</dd></div>
+      }
+      @if (e.notes) {
+        <div class="field wide"><dt>Note</dt><dd>{{ e.notes }}</dd></div>
+      }
+    </dl>
+
+    <footer class="dialog-actions">
+      <button class="btn-danger" (click)="remove(e)"><lucide-icon [img]="I.delete" [size]="16" />Elimina</button>
+      <span class="spacer"></span>
+      @if (e.needsReview) {
+        <button class="btn-secondary" (click)="markReviewed(e)"><lucide-icon [img]="I.success" [size]="16" />Revisionato</button>
+      }
+      @if (!isTopUp(e)) {
+        <button class="btn-secondary" (click)="toggleTransfer(e)">
+          <lucide-icon [img]="I.transfer" [size]="16" />{{ e.isTransfer ? 'Conta nei totali' : 'Escludi dai totali' }}
+        </button>
+      }
+      <button class="btn-primary" (click)="edit(e)"><lucide-icon [img]="I.edit" [size]="16" />Modifica</button>
+    </footer>
+  </div>
+}

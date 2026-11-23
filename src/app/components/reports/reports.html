@@ -1,0 +1,171 @@
+<div class="reports-container">
+  <div class="page-header">
+    <div>
+      <h1>Report</h1>
+      <p>Andamento, confronto tra membri e budget</p>
+    </div>
+    <div class="header-actions">
+      <select [(ngModel)]="selectedMonths" (ngModelChange)="onMonthsChange()" class="period-select" aria-label="Periodo">
+        <option [value]="3">Ultimi 3 mesi</option>
+        <option [value]="6">Ultimi 6 mesi</option>
+        <option [value]="12">Ultimi 12 mesi</option>
+      </select>
+      <button class="btn-export" (click)="exportToPDF()"><lucide-icon [img]="I.print" [size]="16" />Stampa / PDF</button>
+    </div>
+  </div>
+
+  <!-- Andamento -->
+  <section class="card report-section">
+    <div class="section-head">
+      <h2>Entrate e uscite per mese</h2>
+    </div>
+    <div class="chart-container-report">
+      <canvas baseChart [data]="comparisonChartData" [options]="comparisonChartOptions" [type]="comparisonChartType"></canvas>
+    </div>
+  </section>
+
+  <!-- Dati mensili -->
+  <section class="card report-section flush print-section">
+    <div class="section-head padded">
+      <h2>Dati mensili</h2>
+      <span class="section-hint">Uscite reali del periodo</span>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table monthly-table">
+        <thead>
+          <tr>
+            <th>Periodo</th>
+            <th class="num">Totale</th>
+            <th class="num">Numero spese</th>
+            <th class="num">Media per spesa</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let month of monthlyData">
+            <td>{{ month.month }} {{ month.year }}</td>
+            <td class="num">{{ formatCurrency(month.total) }}</td>
+            <td class="num">{{ month.count }}</td>
+            <td class="num">{{ formatCurrency(month.total / month.count) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Totale · {{ monthlyData.length }} mesi</td>
+            <td class="num">{{ formatCurrency(monthlyGrandTotal()) }}</td>
+            <td class="num">{{ monthlyCount() }}</td>
+            <td class="num">{{ formatCurrency(monthlyCount() ? monthlyGrandTotal() / monthlyCount() : 0) }}</td>
+          </tr>
+          <tr class="avg-row">
+            <td>Media mensile</td>
+            <td class="num">{{ formatCurrency(monthlyData.length ? monthlyGrandTotal() / monthlyData.length : 0) }}</td>
+            <td class="num">{{ monthlyData.length ? (monthlyCount() / monthlyData.length).toFixed(0) : 0 }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- Membri -->
+  <section class="card report-section flush">
+    <div class="section-head padded">
+      <h2>Uscite per membro</h2>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Membro</th>
+            <th class="num">Totale</th>
+            <th class="num">Spese</th>
+            <th class="num">Media per spesa</th>
+            <th class="share-col">Quota</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let member of memberStats">
+            <td>{{ member.name }}</td>
+            <td class="num">{{ formatCurrency(member.total) }}</td>
+            <td class="num">{{ member.count }}</td>
+            <td class="num">{{ formatCurrency(member.average) }}</td>
+            <td class="share-col">
+              <div class="share">
+                <div class="share-bar"><div class="share-fill" [style.width.%]="member.percentage"></div></div>
+                <span class="share-value">{{ member.percentage.toFixed(1) }}%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot *ngIf="memberStats.length > 0">
+          <tr>
+            <td>Totale</td>
+            <td class="num">{{ formatCurrency(memberTotal()) }}</td>
+            <td class="num">{{ memberCount() }}</td>
+            <td class="num">{{ formatCurrency(memberCount() ? memberTotal() / memberCount() : 0) }}</td>
+            <td class="share-col"><span class="share-value">100%</span></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="card report-section">
+    <div class="section-head">
+      <h2>Andamento per membro</h2>
+    </div>
+    <div class="chart-container-report">
+      <canvas baseChart [data]="memberTrendChartData" [options]="memberTrendChartOptions" [type]="memberTrendChartType"></canvas>
+    </div>
+  </section>
+
+  <!-- Budget -->
+  <section class="card report-section">
+    <div class="section-head">
+      <div>
+        <h2>Budget mensili</h2>
+        <p class="section-description">Limiti di spesa per categoria nel mese corrente</p>
+      </div>
+      <button class="btn-secondary" (click)="addBudget()"><lucide-icon [img]="I.add" [size]="16" />Aggiungi budget</button>
+    </div>
+
+    <div class="budgets-list" *ngIf="budgets.length > 0; else noBudgets">
+      <div class="budget-card" *ngFor="let budget of budgets; let i = index" [class.over-budget]="budget.isOverBudget">
+        <div class="budget-header">
+          <app-category-icon [icon]="categoryIcon(budget.category)" [name]="budget.category" [color]="categoryColor(budget.category)" />
+          <select [(ngModel)]="budget.category" (ngModelChange)="onBudgetChange(i)" title="Categoria del budget" class="budget-category">
+            <option *ngFor="let cat of getAvailableCategories(budget.category)" [value]="cat">{{ cat }}</option>
+          </select>
+          <button class="icon-btn danger" (click)="removeBudget(i)" title="Rimuovi budget">
+            <lucide-icon [img]="I.close" [size]="15" />
+          </button>
+        </div>
+
+        <div class="budget-input-group">
+          <label [attr.for]="'budget-' + i">Limite mensile</label>
+          <div class="input-suffix">
+            <input [id]="'budget-' + i" type="number" [(ngModel)]="budget.limit" (ngModelChange)="onBudgetChange(i)" placeholder="0" step="10" min="0" />
+            <span>€</span>
+          </div>
+        </div>
+
+        <div class="budget-progress">
+          <div class="budget-progress-bar">
+            <div class="budget-progress-fill" [style.width.%]="budget.percentage > 100 ? 100 : budget.percentage" [style.background-color]="getBudgetColor(budget)"></div>
+          </div>
+          <span class="budget-percentage" [style.color]="getBudgetColor(budget)">{{ budget.percentage.toFixed(0) }}%</span>
+        </div>
+
+        <div class="budget-stats">
+          <span>Speso <strong>{{ formatCurrency(budget.spent) }}</strong></span>
+          <span>Rimanente <strong [class.neg]="budget.limit - budget.spent < 0">{{ formatCurrency(budget.limit - budget.spent) }}</strong></span>
+        </div>
+
+        <div class="budget-note neg" *ngIf="budget.isOverBudget">Superato di {{ formatCurrency(budget.spent - budget.limit) }}</div>
+        <div class="budget-note warn" *ngIf="!budget.isOverBudget && budget.percentage >= 80">Vicino al limite</div>
+      </div>
+    </div>
+    <ng-template #noBudgets>
+      <p class="empty-message">Nessun budget impostato.</p>
+    </ng-template>
+  </section>
+</div>

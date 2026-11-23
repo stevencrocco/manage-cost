@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "manage-cost",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev.mjs", "--port", "4200"],
+      "port": 4200
+    },
+    {
+      "name": "manage-cost-test",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev.mjs", "--port", "4201"],
+      "port": 4201
+    }
+  ]
+}

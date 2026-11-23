@@ -1,0 +1,278 @@
+/*
+ * Design system dell'app: token (colori, spazi, raggi) + componenti condivisi.
+ * Tema chiaro su :root, tema scuro su body.dark-theme (ThemeService).
+ * I componenti usano solo questi token: niente colori fissi nei file dei componenti.
+ */
+
+:root {
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+
+  --text: #101828;
+  --text-2: #475467;
+  --text-3: #667085;
+
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-soft: #eff4ff;
+  --primary-text: #ffffff;
+
+  --pos: #067647;
+  --pos-soft: #ecfdf3;
+  --neg: #b42318;
+  --neg-soft: #fef3f2;
+  --warn: #b54708;
+  --warn-soft: #fffaeb;
+  --muted-soft: #f2f4f7;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --focus: 0 0 0 3px rgba(29, 78, 216, 0.18);
+}
+
+body.dark-theme {
+  --bg: #0c111d;
+  --surface: #161b26;
+  --surface-2: #1b2130;
+  --surface-hover: #202839;
+  --border: #262f40;
+  --border-strong: #344054;
+
+  --text: #f5f5f6;
+  --text-2: #cecfd2;
+  --text-3: #94969c;
+
+  --primary: #4b7bf5;
+  --primary-hover: #6b93f7;
+  --primary-soft: rgba(75, 123, 245, 0.14);
+
+  --pos: #47cd89;
+  --pos-soft: rgba(71, 205, 137, 0.12);
+  --neg: #f97066;
+  --neg-soft: rgba(249, 112, 102, 0.12);
+  --warn: #fdb022;
+  --warn-soft: rgba(253, 176, 34, 0.12);
+  --muted-soft: #202839;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --focus: 0 0 0 3px rgba(75, 123, 245, 0.3);
+  color-scheme: dark;
+}
+
+/* ---------- Base ---------- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+h1, h2, h3, h4 { color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 22px; line-height: 1.3; }
+h2 { font-size: 16px; line-height: 1.4; }
+h3 { font-size: 14px; line-height: 1.4; }
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  background: var(--muted-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-2);
+}
+
+button { cursor: pointer; font-family: inherit; border: none; background: none; color: inherit; }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* Icone Lucide */
+lucide-icon { display: inline-flex; flex-shrink: 0; }
+
+/* Numeri allineati in colonna */
+.num, .amount-cell, .stat-value, .tree-node-total, .tree-child-amount, .expense-amount,
+.total-value, .grand-total-value, .member-amount, .category-amount { font-variant-numeric: tabular-nums; }
+
+/* ---------- Form ---------- */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  min-height: 36px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea { min-height: 80px; resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--text-3); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus); }
+select {
+  cursor: pointer;
+  padding-right: 30px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858b99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 14px;
+}
+select option { background: var(--surface); color: var(--text); }
+label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+
+/* ---------- Pulsanti (tutte le varianti usate nei componenti) ---------- */
+.btn, .btn-primary, .btn-submit, .btn-save, .btn-add-member, .btn-add-budget,
+.btn-secondary, .btn-cancel, .btn-cancel-small, .btn-import, .btn-export, .btn-filters,
+.btn-view-toggle, .btn-group-toggle, .btn-clear-filters, .btn-review, .btn-reset, .btn-danger, .btn-save-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:hover, .btn-secondary:hover, .btn-cancel:hover, .btn-cancel-small:hover, .btn-import:hover, .btn-export:hover,
+.btn-filters:hover, .btn-view-toggle:hover, .btn-group-toggle:hover, .btn-clear-filters:hover, .btn-review:hover {
+  background: var(--surface-hover);
+}
+
+.btn-primary, .btn-submit, .btn-save, .btn-add-member, .btn-add-budget, .btn-save-small {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+.btn-primary:hover, .btn-submit:hover, .btn-save:hover, .btn-add-member:hover, .btn-add-budget:hover, .btn-save-small:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-reset, .btn-danger { color: var(--neg); border-color: var(--border-strong); }
+.btn-reset:hover, .btn-danger:hover { background: var(--neg-soft); border-color: var(--neg); }
+
+.btn-filters.active, .btn-view-toggle.active, .btn-group-toggle.active, .btn-review.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.btn-cancel-small, .btn-save-small { min-height: 32px; padding: 0 10px; font-size: 13px; }
+
+.btn-icon { display: none; } /* icone emoji dei vecchi pulsanti */
+
+.btn-link { color: var(--primary); font-weight: 500; font-size: 13px; padding: 4px 0; }
+.btn-link:hover { text-decoration: underline; }
+
+/* Pulsanti icona nelle tabelle */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+.icon-btn.danger:hover { background: var(--neg-soft); color: var(--neg); }
+.icon-btn.active { color: var(--primary); }
+
+
+/* ---------- Superfici ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.page-header p { color: var(--text-3); margin-top: 2px; }
+
+.section-description { color: var(--text-3); font-size: 13px; margin-top: 2px; }
+
+/* ---------- Tabelle ---------- */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.data-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.data-table tbody tr:hover td { background: var(--surface-2); }
+.data-table .num, .data-table th.num { text-align: right; }
+.data-table tfoot td { background: var(--surface-2); font-weight: 600; border-bottom: none; border-top: 1px solid var(--border-strong); }
+.data-table tfoot .avg-row td { font-weight: 400; color: var(--text-3); border-top: none; }
+
+.pos, .amount-income { color: var(--pos) !important; }
+.neg, .amount-expense { color: var(--neg) !important; }
+.amount-transfer { color: var(--text-3) !important; }
+
+/* ---------- Badge e pallini ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: var(--muted-soft);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.empty-message, .empty-state { color: var(--text-3); text-align: center; padding: 28px 16px; }
+.empty-state .btn-primary { margin-top: 12px; }
+.muted { color: var(--text-3); }
+
+@media (max-width: 768px) {
+  .card { padding: 16px; }
+  h1 { font-size: 20px; }
+}
+
+/* ---------- Righe cliccabili (aprono il dettaglio del movimento) ---------- */
+.row-link { cursor: pointer; }
+.data-table tbody tr.row-link:hover td { background: var(--surface-hover); }
+.row-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
