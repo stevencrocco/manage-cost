@@ -39,7 +39,7 @@
         </dd>
       </div>
       <div class="field"><dt>Pagato da</dt><dd>{{ e.paidBy || '—' }}</dd></div>
-      <div class="field"><dt>Carta / conto</dt><dd>{{ cardLabel(e.card) }}</dd></div>
+      <div class="field"><dt>Pagamento</dt><dd><app-payment [expense]="e" /></dd></div>
       <div class="field"><dt>Origine</dt><dd>{{ sourceLabel(e) }}</dd></div>
       @if (e.bankType) {
         <div class="field"><dt>Tipo operazione</dt><dd>{{ e.bankType }}</dd></div>
@@ -53,11 +53,38 @@
           <dd>
             {{ e.description }}
             @if (sameMerchant().count > 1) {
-              <button class="btn-link inline" (click)="showSameMerchant(e)">
+              <button class="btn-link inline" (click)="toggleMerchantList(e)" [attr.aria-expanded]="merchantListOpen()">
                 {{ sameMerchant().count }} movimenti · {{ formatCurrency(sameMerchant().total) }} in totale
+                <lucide-icon class="list-chevron" [class.open]="merchantListOpen()" [img]="I.chevron" [size]="14" />
               </button>
             }
           </dd>
+          @if (merchantListOpen()) {
+            <div class="merchant-list">
+              <div class="scroll">
+              <table class="data-table">
+                <tbody>
+                  @for (x of sameMerchant().items; track x.id) {
+                    <tr class="row-link" [class.current]="isCurrent(x)" (click)="openOther(x.id)" tabindex="0" (keydown.enter)="openOther(x.id)"
+                        [title]="isCurrent(x) ? 'Movimento aperto' : 'Apri questo movimento'">
+                      <td class="nowrap muted">{{ shortDate(x.date) }}</td>
+                      <td class="nowrap"><app-payment [expense]="x" [inline]="true" /></td>
+                      <td>{{ x.category }}@if (x.needsReview) {<span class="badge badge-warn">Da revisionare</span>}</td>
+                      <td class="num">{{ signedAmount(x) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3">Totale · {{ sameMerchant().count }} movimenti</td>
+                    <td class="num">{{ formatCurrency(sameMerchant().total) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+              </div>
+              <button class="btn-link inline" (click)="showSameMerchant(e)">Apri in Movimenti</button>
+            </div>
+          }
         </div>
       }
       @if (e.bankDescription) {

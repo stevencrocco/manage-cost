@@ -1,6 +1,7 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ExpenseService } from '../../services/expense.service';
 import { ExpenseSummary, Expense, Category, FamilyMember, isRealExpense, isRealIncome } from '../../models/expense.model';
@@ -8,15 +9,18 @@ import { BaseChartDirective } from 'ng2-charts';
 import { LucideAngularModule } from 'lucide-angular';
 import { UI_ICONS } from '../../icons/ui-icons';
 import { CategoryIconComponent } from '../../icons/category-icon.component';
+import { PaymentBadgeComponent } from '../../icons/payment-badge.component';
 import { ChartConfiguration, ChartData } from 'chart.js';
 import { formatEuro } from '../../utils/format';
 import { ExpenseDetailService } from '../../services/expense-detail.service';
 import { CHART_COLORS, CHART_PALETTE, euroTick } from '../../charts/chart-theme';
 
+type ChartRange = '6' | '12' | '24' | '36' | 'all' | 'custom';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, BaseChartDirective, LucideAngularModule, CategoryIconComponent],
+  imports: [CommonModule, FormsModule, BaseChartDirective, LucideAngularModule, CategoryIconComponent, PaymentBadgeComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -46,8 +50,29 @@ export class DashboardComponent implements OnInit {
   expandedMembers: Set<string> = new Set();
   allExpenses: Expense[] = [];
   /** Tabella dei totali per mese (dal più recente) e riga di totale */
-  monthlyRows: { label: string; income: number; expenses: number; balance: number; count: number }[] = [];
+  monthlyRows: { key: string; label: string; income: number; expenses: number; balance: number; count: number }[] = [];
+  /** Mese in corso 'AAAA-MM', evidenziato nella tabella */
+  readonly currentMonthKey = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`; })();
   monthlyTotals = { income: 0, expenses: 0, balance: 0, count: 0 };
+
+  // Periodo del grafico "Entrate e uscite per mese"
+  readonly chartRanges: { value: ChartRange; label: string }[] = [
+    { value: '6', label: 'Ultimi 6 mesi' },
+    { value: '12', label: 'Ultimi 12 mesi' },
+    { value: '24', label: 'Ultimi 24 mesi' },
+    { value: '36', label: 'Ultimi 36 mesi' },
+    { value: 'all', label: 'Tutto' },
+    { value: 'custom', label: 'Da mese… a mese…' }
+  ];
+  chartRange: ChartRange = '12';
+  chartFrom = '';
+  chartTo = '';
+  /** Mesi mostrati nel grafico ('AAAA-MM'), per aprire il mese al clic su una barra */
+  chartMonths: string[] = [];
+  /** Totali del periodo del grafico */
+  chartTotals = { income: 0, expenses: 0, balance: 0, months: 0 };
+  chartPeriodLabel = '';
+  private monthlyMap: { [key: string]: { income: number; expenses: number; count: number } } = {};
   categories: Category[] = [];
   members: FamilyMember[] = [];
 
@@ -78,6 +103,15 @@ export class DashboardComponent implements OnInit {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
+    // Clic su un mese del grafico: apre i movimenti di quel mese
+    onClick: (_event, elements) => {
+      const key = elements.length ? this.chartMonths[elements[0].index] : undefined;
+      if (key) this.openMonth(key);
+    },
+    onHover: (event, elements) => {
+      const target = event.native?.target as HTMLElement | undefined;
+      if (target) target.style.cursor = elements.length ? 'pointer' : 'default';
+    },
     plugins: {
       legend: { position: 'top', align: 'end' },
       tooltip: { callbacks: { label: (context) => ` ${context.dataset.label}: ${formatEuro(context.parsed.y || 0)}` } }
@@ -112,6 +146,7 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.restoreChartRange();
     // Una sola sottoscrizione, chiusa automaticamente alla distruzione del componente
     this.expenseService.getExpenses()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -191,6 +226,59 @@ export class DashboardComponent implements OnInit {
 
   isIncome(e: Expense): boolean {
     return e.type === 'entrata';
+  }
+
+  /** Mesi consecutivi del periodo scelto */
+  private chartMonthKeys(): string[] {
+    const keys = Object.keys(this.monthlyMap).sort();
+    const shift = (k: string, d: number) => {
+      const [y, m] = k.split('-').map(Number);
+      const x = new Date(y, m - 1 + d, 1);
+      return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const lastData = keys[keys.length - 1];
+    let end = lastData && lastData > this.currentMonthKey ? lastData : this.currentMonthKey;
+    let start: string;
+    if (this.chartRange === 'all') {
+      start = keys[0] ?? end;
+    } else if (this.chartRange === 'custom') {
+      start = this.chartFrom || keys[0] || end;
+      end = this.chartTo || end;
+      if (start > end) [start, end] = [end, start];
+    } else {
+      start = shift(end, -(Number(this.chartRange) - 1));
+    }
+    const out: string[] = [];
+    for (let k = start; k <= end && out.length < 600; k = shift(k, 1)) out.push(k);
+    return out;
+  }
+
+  onChartRangeChange(): void {
+    if (this.chartRange === 'custom' && !this.chartFrom) {
+      // Si parte dal periodo che si stava guardando
+      this.chartFrom = this.chartMonths[0] ?? this.currentMonthKey;
+      this.chartTo = this.chartMonths[this.chartMonths.length - 1] ?? this.currentMonthKey;
+    }
+    try {
+      localStorage.setItem('dashboardChartRange', JSON.stringify({ range: this.chartRange, from: this.chartFrom, to: this.chartTo }));
+    } catch { /* comodità: si può ignorare */ }
+    this.buildBarChart();
+  }
+
+  private restoreChartRange(): void {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dashboardChartRange') || 'null');
+      if (saved && this.chartRanges.some(r => r.value === saved.range)) {
+        this.chartRange = saved.range;
+        this.chartFrom = saved.from || '';
+        this.chartTo = saved.to || '';
+      }
+    } catch { /* ignora */ }
+  }
+
+  /** Apre Movimenti sul mese scelto */
+  openMonth(key: string): void {
+    this.router.navigate(['/expenses'], { queryParams: { month: key } });
   }
 
   navigateToExpenses(): void {
@@ -315,15 +403,33 @@ export class DashboardComponent implements OnInit {
     this.monthlyRows = Object.keys(monthly).sort().reverse().map(k => {
       const [y, m] = k.split('-');
       const v = monthly[k];
-      return { label: `${fullMonthNames[parseInt(m) - 1]} ${y}`, income: v.income, expenses: v.expenses, balance: v.income - v.expenses, count: v.count };
+      return { key: k, label: `${fullMonthNames[parseInt(m) - 1]} ${y}`, income: v.income, expenses: v.expenses, balance: v.income - v.expenses, count: v.count };
     });
     this.monthlyTotals = this.monthlyRows.reduce(
       (t, r) => ({ income: t.income + r.income, expenses: t.expenses + r.expenses, balance: t.balance + r.balance, count: t.count + r.count }),
       { income: 0, expenses: 0, balance: 0, count: 0 }
     );
 
-    const months = Object.keys(monthly).sort().slice(-12);
+    this.monthlyMap = monthly;
+    this.buildBarChart();
+  }
+
+  /** Disegna il grafico mensile sul periodo scelto (mesi consecutivi, anche quelli senza movimenti) */
+  buildBarChart(): void {
+    const monthly = this.monthlyMap;
+    const months = this.chartMonthKeys();
+    this.chartMonths = months;
     const monthNames = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+    const fullNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    const long = (k: string) => { const [y, m] = k.split('-'); return `${fullNames[parseInt(m) - 1]} ${y}`; };
+
+    const t = { income: 0, expenses: 0, balance: 0, months: months.length };
+    months.forEach(k => { t.income += monthly[k]?.income ?? 0; t.expenses += monthly[k]?.expenses ?? 0; });
+    t.balance = t.income - t.expenses;
+    this.chartTotals = t;
+    this.chartPeriodLabel = months.length
+      ? (months.length === 1 ? long(months[0]) : `${long(months[0])} – ${long(months[months.length - 1])} · ${months.length} mesi`)
+      : 'Nessun mese nel periodo';
 
     this.barChartData = {
       labels: months.map(m => {
@@ -331,8 +437,8 @@ export class DashboardComponent implements OnInit {
         return `${monthNames[parseInt(monthNum) - 1]} ${year.slice(2)}`;
       }),
       datasets: [
-        { label: 'Entrate', data: months.map(m => monthly[m].income), backgroundColor: CHART_COLORS.income, borderRadius: 3, maxBarThickness: 22 },
-        { label: 'Uscite', data: months.map(m => monthly[m].expenses), backgroundColor: CHART_COLORS.expense, borderRadius: 3, maxBarThickness: 22 }
+        { label: 'Entrate', data: months.map(m => monthly[m]?.income ?? 0), backgroundColor: CHART_COLORS.income, borderRadius: 3, maxBarThickness: 22 },
+        { label: 'Uscite', data: months.map(m => monthly[m]?.expenses ?? 0), backgroundColor: CHART_COLORS.expense, borderRadius: 3, maxBarThickness: 22 }
       ]
     };
   }

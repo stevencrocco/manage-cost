@@ -2,7 +2,7 @@ import {
   Archive, ArrowDownRight, ArrowLeftRight, ArrowUpRight, ChartColumn, ChevronRight, CircleAlert, CircleCheck, CircleX,
   Database, Download, FileSpreadsheet, Info, LayoutDashboard, List, Moon, Pencil, Plus, Printer, RefreshCw, Scale,
   Search, Settings, SlidersHorizontal, Sun, Tags, Trash2, TrendingDown, TrendingUp, TriangleAlert, Upload, Users,
-  Wallet, X, FolderOpen, Save
+  Wallet, X, FolderOpen, Save, ChevronLeft
 } from 'lucide-angular';
 
 /**
@@ -24,6 +24,7 @@ export const UI_ICONS = {
   filters: SlidersHorizontal,
   warning: TriangleAlert,
   chevron: ChevronRight,
+  chevronLeft: ChevronLeft,
   close: X,
   print: Printer,
   income: TrendingUp,

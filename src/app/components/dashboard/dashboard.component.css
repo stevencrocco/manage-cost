@@ -1,3 +1,6 @@
+.mobile-only { display: none; }
+.mobile-pay { margin-top: 3px; font-size: 12px; }
+
 .dashboard-container { display: flex; flex-direction: column; gap: 16px; }
 .dashboard-container .page-header { margin-bottom: 4px; }
 
@@ -113,6 +116,26 @@
   .stats-grid { grid-template-columns: 1fr; }
   .stat-value { font-size: 22px; }
   .hide-mobile { display: none; }
+  .mobile-only { display: block; }
   .tree-child-item { padding-left: 20px; }
   .tree-child-date { width: auto; }
 }
+
+/* Totali per mese: mese in corso evidenziato */
+.data-table tbody tr.current-month td { background: var(--primary-soft); font-weight: 500; }
+.data-table tbody tr.current-month td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.badge-current { margin-left: 8px; background: var(--primary); color: var(--primary-text); }
+
+/* Pagamento nelle righe aperte degli alberi */
+.tree-child-pay { flex-shrink: 0; font-size: 12.5px; max-width: 220px; overflow: hidden; }
+@media (max-width: 700px) { .tree-child-pay { display: none; } }
+
+/* Periodo del grafico mensile */
+.chart-head { align-items: flex-start; flex-wrap: wrap; }
+.chart-head .card-hint { display: block; margin-top: 2px; }
+.chart-period { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.chart-period select, .chart-period input { width: auto; height: 32px; font-size: 13px; }
+.chart-totals { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--text-3); margin: -4px 0 10px; }
+.chart-totals strong { font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; color: var(--text); }
+.chart-totals strong.pos { color: var(--pos); }
+.chart-totals strong.neg { color: var(--neg); }

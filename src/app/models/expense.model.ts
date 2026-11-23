@@ -31,6 +31,8 @@ export interface Expense {
   merchant?: string;
   /** Ultime cifre della carta, o 'Conto' per operazioni sul conto */
   card?: string;
+  /** Ultima modifica fatta nell'app (ISO): all'import vince la versione più recente */
+  updatedAt?: string;
 }
 
 export interface Category {

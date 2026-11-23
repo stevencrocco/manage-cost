@@ -10,17 +10,27 @@ import { ExpenseDetailService, cardLabel } from '../../services/expense-detail.s
 import { LucideAngularModule } from 'lucide-angular';
 import { UI_ICONS } from '../../icons/ui-icons';
 import { CategoryIconComponent } from '../../icons/category-icon.component';
+import { PaymentBadgeComponent } from '../../icons/payment-badge.component';
+import { paymentText } from '../../utils/payment';
 import { Category, Expense, isCardTopUp, movementType } from '../../models/expense.model';
 
-type SortColumn = 'date' | 'description' | 'amount' | 'category' | 'paidBy';
-type PeriodPreset = 'all' | 'thisMonth' | 'lastMonth' | 'last3' | 'last12' | 'thisYear' | 'lastYear' | 'custom';
+type SortColumn = 'date' | 'description' | 'amount' | 'category' | 'paidBy' | 'payment';
+type PeriodPreset = 'all' | 'month' | 'last3' | 'last6' | 'last12' | 'last24' | 'last36' | 'thisYear' | 'lastYear' | 'custom';
+
+const MONTH_NAMES = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+/** Mese corrente come 'AAAA-MM' */
+export function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
 
 const FILTERS_KEY = 'expenseListFilters';
 
 @Component({
   selector: 'app-expense-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, CategoryIconComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule, CategoryIconComponent, PaymentBadgeComponent],
   templateUrl: './expense-list.component.html',
   styleUrls: ['./expense-list.component.css']
 })
@@ -37,7 +47,10 @@ export class ExpenseListComponent implements OnInit {
 
   // Filtri
   typeFilter: 'all' | 'uscita' | 'entrata' = 'all';
-  period: PeriodPreset = 'all';
+  /** All'apertura si parte dal mese corrente */
+  period: PeriodPreset = 'month';
+  /** Mese mostrato quando period === 'month' ('AAAA-MM') */
+  selectedMonth = currentMonthKey();
   dateFrom = '';
   dateTo = '';
   selectedCategories: string[] = [];
@@ -51,11 +64,13 @@ export class ExpenseListComponent implements OnInit {
   showFilters = false;
 
   readonly periods: { value: PeriodPreset; label: string }[] = [
+    { value: 'month', label: 'Un mese' },
     { value: 'all', label: 'Tutto' },
-    { value: 'thisMonth', label: 'Questo mese' },
-    { value: 'lastMonth', label: 'Mese scorso' },
     { value: 'last3', label: 'Ultimi 3 mesi' },
+    { value: 'last6', label: 'Ultimi 6 mesi' },
     { value: 'last12', label: 'Ultimi 12 mesi' },
+    { value: 'last24', label: 'Ultimi 24 mesi' },
+    { value: 'last36', label: 'Ultimi 36 mesi' },
     { value: 'thisYear', label: 'Quest\'anno' },
     { value: 'lastYear', label: 'Anno scorso' },
     { value: 'custom', label: 'Date…' }
@@ -80,16 +95,36 @@ export class ExpenseListComponent implements OnInit {
 
   ngOnInit(): void {
     this.restoreFilters();
+    if (this.period === 'month') this.setMonthRange();
     if (this.route.snapshot.queryParamMap.get('review')) {
       this.clearFilters(false);
+      this.period = 'all';
+      this.dateFrom = this.dateTo = '';
       this.onlyToReview = true;
       this.showFilters = true;
     }
-    const search = this.route.snapshot.queryParamMap.get('search');
-    if (search) {
-      this.clearFilters(false);
-      this.searchText = search;
-    }
+    // ?search=… (dal dettaglio di un movimento): reagisce anche se la pagina è già aperta
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(params => {
+        // ?month=AAAA-MM (dalla tabella "Totali per mese" della dashboard)
+        const month = params.get('month');
+        if (month && /^\d{4}-\d{2}$/.test(month)) {
+          this.clearFilters(false);
+          this.selectMonth(month);
+          // Toglie il parametro: da qui il mese si cambia con le frecce
+          this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+          return;
+        }
+        const search = params.get('search');
+        if (search === null) return;
+        this.clearFilters(false);
+        this.period = 'all';
+        this.dateFrom = this.dateTo = '';
+        this.searchText = search;
+        this.currentPage = 1;
+        this.filterExpenses();
+      });
 
     this.expenseService.getExpenses()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -112,12 +147,70 @@ export class ExpenseListComponent implements OnInit {
 
   setPeriod(p: PeriodPreset): void {
     this.period = p;
-    if (p !== 'custom') {
+    if (p === 'month') {
+      this.setMonthRange();
+    } else if (p !== 'custom') {
       const range = this.periodRange(p);
       this.dateFrom = range ? this.toInputDate(range[0]) : '';
       this.dateTo = range ? this.toInputDate(range[1]) : '';
     }
     this.applyFilters();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mese in evidenza
+  // ---------------------------------------------------------------------------
+
+  /** Mostra un mese ('AAAA-MM') */
+  selectMonth(key: string): void {
+    if (!/^\d{4}-\d{2}$/.test(key)) return;
+    this.period = 'month';
+    this.selectedMonth = key;
+    this.setMonthRange();
+    this.applyFilters();
+  }
+
+  shiftMonth(delta: number): void {
+    const [y, m] = this.selectedMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    this.selectMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  goToCurrentMonth(): void {
+    this.selectMonth(currentMonthKey());
+  }
+
+  isCurrentMonth(): boolean {
+    return this.period === 'month' && this.selectedMonth === currentMonthKey();
+  }
+
+  /** Non si va oltre il mese corrente */
+  canGoNext(): boolean {
+    return this.period === 'month' && this.selectedMonth < currentMonthKey();
+  }
+
+  monthLabel(key = this.selectedMonth): string {
+    const [y, m] = key.split('-').map(Number);
+    return `${MONTH_NAMES[m - 1]} ${y}`;
+  }
+
+  /** Titolo grande della barra in alto */
+  periodTitle(): string {
+    switch (this.period) {
+      case 'month': return this.monthLabel();
+      case 'all': return 'Tutti i mesi';
+      case 'custom': {
+        const f = (s: string) => s ? new Date(s).toLocaleDateString('it-IT', { timeZone: 'UTC' }) : '…';
+        return this.dateFrom || this.dateTo ? `Dal ${f(this.dateFrom)} al ${f(this.dateTo)}` : 'Tutti i mesi';
+      }
+      default: return this.periods.find(p => p.value === this.period)?.label ?? '';
+    }
+  }
+
+  private setMonthRange(): void {
+    const [y, m] = this.selectedMonth.split('-').map(Number);
+    this.dateFrom = this.toInputDate(new Date(Date.UTC(y, m - 1, 1)));
+    this.dateTo = this.toInputDate(new Date(Date.UTC(y, m, 0)));
   }
 
   onCustomDateChange(): void {
@@ -131,10 +224,11 @@ export class ExpenseListComponent implements OnInit {
     const m = now.getMonth();
     const utc = (yy: number, mm: number, dd: number) => new Date(Date.UTC(yy, mm, dd));
     switch (p) {
-      case 'thisMonth': return [utc(y, m, 1), utc(y, m + 1, 0)];
-      case 'lastMonth': return [utc(y, m - 1, 1), utc(y, m, 0)];
       case 'last3': return [utc(y, m - 2, 1), utc(y, m + 1, 0)];
+      case 'last6': return [utc(y, m - 5, 1), utc(y, m + 1, 0)];
       case 'last12': return [utc(y, m - 11, 1), utc(y, m + 1, 0)];
+      case 'last24': return [utc(y, m - 23, 1), utc(y, m + 1, 0)];
+      case 'last36': return [utc(y, m - 35, 1), utc(y, m + 1, 0)];
       case 'thisYear': return [utc(y, 0, 1), utc(y, 11, 31)];
       case 'lastYear': return [utc(y - 1, 0, 1), utc(y - 1, 11, 31)];
       default: return null;
@@ -222,11 +316,14 @@ export class ExpenseListComponent implements OnInit {
     }
   }
 
+  /** Toglie i filtri; il mese in evidenza resta (non è un filtro) */
   clearFilters(apply = true): void {
     this.typeFilter = 'all';
-    this.period = 'all';
-    this.dateFrom = '';
-    this.dateTo = '';
+    if (this.period !== 'month') {
+      this.period = 'all';
+      this.dateFrom = '';
+      this.dateTo = '';
+    }
     this.selectedCategories = [];
     this.selectedMember = 'all';
     this.selectedCard = 'all';
@@ -241,7 +338,7 @@ export class ExpenseListComponent implements OnInit {
   getActiveFiltersCount(): number {
     let count = 0;
     if (this.typeFilter !== 'all') count++;
-    if (this.dateFrom || this.dateTo) count++;
+    if (this.period !== 'month' && (this.dateFrom || this.dateTo)) count++;
     if (this.selectedCategories.length) count++;
     if (this.selectedMember !== 'all') count++;
     if (this.selectedCard !== 'all') count++;
@@ -261,7 +358,7 @@ export class ExpenseListComponent implements OnInit {
   private saveFilters(): void {
     try {
       sessionStorage.setItem(FILTERS_KEY, JSON.stringify({
-        typeFilter: this.typeFilter, period: this.period, dateFrom: this.dateFrom, dateTo: this.dateTo,
+        typeFilter: this.typeFilter, period: this.period, selectedMonth: this.selectedMonth, dateFrom: this.dateFrom, dateTo: this.dateTo,
         selectedCategories: this.selectedCategories, selectedMember: this.selectedMember,
         selectedCard: this.selectedCard, transfers: this.transfers, viewMode: this.viewMode,
         itemsPerPage: this.itemsPerPage
@@ -273,12 +370,21 @@ export class ExpenseListComponent implements OnInit {
     try {
       const saved = JSON.parse(sessionStorage.getItem(FILTERS_KEY) || 'null');
       if (saved) Object.assign(this, saved);
+      // Preset non più esistenti
+      if ((this.period as string) === 'thisMonth') { this.period = 'month'; this.selectedMonth = currentMonthKey(); }
+      if ((this.period as string) === 'lastMonth') { this.period = 'month'; this.selectedMonth = currentMonthKey(); this.shiftMonthKeyOnly(-1); }
       // I periodi relativi si ricalcolano sulla data di oggi
-      if (this.period !== 'all' && this.period !== 'custom') {
+      if (this.period !== 'all' && this.period !== 'custom' && this.period !== 'month') {
         const range = this.periodRange(this.period);
         if (range) { this.dateFrom = this.toInputDate(range[0]); this.dateTo = this.toInputDate(range[1]); }
       }
     } catch { /* ignora */ }
+  }
+
+  private shiftMonthKeyOnly(delta: number): void {
+    const [y, m] = this.selectedMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    this.selectedMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -427,6 +533,7 @@ export class ExpenseListComponent implements OnInit {
         case 'amount': comparison = this.signedAmount(a) - this.signedAmount(b) || a.amount - b.amount; break;
         case 'category': comparison = a.category.localeCompare(b.category); break;
         case 'paidBy': comparison = a.paidBy.localeCompare(b.paidBy); break;
+        case 'payment': comparison = paymentText(a).localeCompare(paymentText(b), 'it'); break;
       }
       return this.sortDirection === 'asc' ? comparison : -comparison;
     });

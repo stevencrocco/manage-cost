@@ -1,3 +1,44 @@
+/* Pagamento sotto la descrizione, solo su schermi stretti */
+.mobile-only { display: none; }
+.mobile-pay { margin-top: 3px; font-size: 12px; }
+
+/* Mese in evidenza */
+.month-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-left: 4px solid var(--border-strong);
+}
+.month-bar.is-current { border-left-color: var(--primary); }
+.month-nav { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.month-heading { display: flex; flex-direction: column; min-width: 150px; }
+.month-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.month-bar.is-current .month-eyebrow { color: var(--primary); }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.month-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
+.month-summary { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--text-3); margin-left: 8px; }
+.month-summary strong { font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.month-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.month-picker { width: auto; height: 34px; }
+.month-bar .icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+@media (max-width: 700px) {
+  .month-summary { order: 5; width: 100%; margin-left: 0; }
+  .month-actions { order: 6; width: 100%; margin-left: 0; flex-wrap: wrap; }
+}
+
 .expense-list-container { display: flex; flex-direction: column; gap: 14px; }
 .expense-list-container .page-header { margin-bottom: 4px; }
 
@@ -198,7 +239,12 @@ tr:hover .table-actions { opacity: 1; }
 @media (max-width: 768px) {
   .total-item + .total-item { border-left: none; border-top: 1px solid var(--border); }
   .hide-mobile { display: none; }
+  .mobile-only { display: block; }
   .table-actions { opacity: 1; }
   .search-box { flex-basis: 100%; }
   .inline-category { max-width: 140px; }
 }
+
+/* Colonna Pagamento */
+.pay-cell { white-space: nowrap; }
+.pay-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px; }

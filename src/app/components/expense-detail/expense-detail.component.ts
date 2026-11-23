@@ -9,6 +9,7 @@ import { ExpenseDetailService, cardLabel } from '../../services/expense-detail.s
 import { ToastService } from '../../services/toast.service';
 import { UI_ICONS } from '../../icons/ui-icons';
 import { CategoryIconComponent } from '../../icons/category-icon.component';
+import { PaymentBadgeComponent } from '../../icons/payment-badge.component';
 import { Category, Expense, isCardTopUp, movementType } from '../../models/expense.model';
 import { formatEuro } from '../../utils/format';
 
@@ -16,7 +17,7 @@ import { formatEuro } from '../../utils/format';
 @Component({
   selector: 'app-expense-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, CategoryIconComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule, CategoryIconComponent, PaymentBadgeComponent],
   templateUrl: './expense-detail.component.html',
   styleUrls: ['./expense-detail.component.css']
 })
@@ -43,13 +44,39 @@ export class ExpenseDetailComponent {
     return id ? this.expenses().find(e => e.id === id) ?? null : null;
   });
 
-  /** Altri movimenti dello stesso esercente */
+  /** Tutti i movimenti dello stesso esercente e tipo (incluso quello aperto), dal più recente */
   readonly sameMerchant = computed(() => {
     const e = this.expense();
-    if (!e?.merchant) return { count: 0, total: 0 };
-    const others = this.expenses().filter(x => x.merchant === e.merchant && movementType(x) === movementType(e));
-    return { count: others.length, total: others.reduce((s, x) => s + x.amount, 0) };
+    if (!e?.merchant) return { count: 0, total: 0, items: [] as Expense[] };
+    const items = this.expenses()
+      .filter(x => x.merchant === e.merchant && movementType(x) === movementType(e))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return { count: items.length, total: items.reduce((s, x) => s + x.amount, 0), items };
   });
+
+  /** Esercente di cui è aperto l'elenco movimenti: resta aperto passando da un movimento all'altro */
+  private openMerchantList = signal<string | null>(null);
+  readonly merchantListOpen = computed(() => {
+    const m = this.expense()?.merchant;
+    return !!m && this.openMerchantList() === m;
+  });
+
+  toggleMerchantList(e: Expense): void {
+    this.openMerchantList.set(this.merchantListOpen() ? null : e.merchant ?? null);
+  }
+
+  /** Passa al dettaglio di un altro movimento dell'elenco */
+  openOther(id: string): void {
+    this.detail.open(id);
+  }
+
+  isCurrent(x: Expense): boolean {
+    return x.id === this.expense()?.id;
+  }
+
+  shortDate(date: Date): string {
+    return new Date(date).toLocaleDateString('it-IT', { timeZone: 'UTC' });
+  }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
@@ -57,6 +84,7 @@ export class ExpenseDetailComponent {
   }
 
   close(): void {
+    this.openMerchantList.set(null);
     this.detail.close();
   }
 

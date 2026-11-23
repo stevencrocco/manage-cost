@@ -149,9 +149,40 @@ maiuscolo e senza spazi:
 
 ## 5. Lista movimenti (menu **Movimenti**)
 
+### Colonna Pagamento
+In tutte le viste dei movimenti c'è la colonna **Pagamento**: tabella, vista raggruppata, schede, finestra di
+dettaglio con l'elenco dello stesso esercente, dashboard (movimenti recenti e alberi per categoria e persona).
+Ogni tipo ha la sua icona colorata.
+
+| Valore | Quando |
+|---|---|
+| **Carta …3661** | Carta di credito/debito (carte a 4 cifre diverse dalla prepagata) |
+| **Bancomat …366** | Carta a 3 cifre; sotto compaiono "Prelievo" o "Commissione" quando servono |
+| **Ricaricabile …2581** | Carta prepagata |
+| **Conto** + tipo | Operazioni sul conto, con il tipo sotto: Bonifico, Bonifico istantaneo, Stipendio, Addebito diretto, Ricarica carta, Ricarica telefonica, Addebito carta di credito, F24, Costi del conto, Storno |
+| **Manuale** | Movimenti inseriti a mano |
+
+- **Ordinamento:** nella tabella principale cliccando l'intestazione.
+- **Filtro:** "Carta/conto" nei Filtri avanzati.
+- **Su telefono:** la colonna è nascosta e il pagamento compare sotto la descrizione.
+- **Codice:** `src/app/utils/payment.ts` (regole) e `src/app/icons/payment-badge.component.ts` (`<app-payment>`).
+
+### Mese in evidenza (barra in alto)
+- **Barra in alto:** sopra i filtri c'è sempre la barra del mese, con il nome grande ("Novembre 2026") e
+  entrate, uscite e saldo di quel mese.
+- **Mese in corso:** è segnato con l'etichetta blu "MESE IN CORSO" e il bordo blu.
+- **Cambiare mese:** con le frecce ‹ ›, con il selettore del mese o con **Mese in corso**. Non si va oltre il
+  mese in corso.
+- **Tutti i mesi:** mostra tutto l'archivio; la barra allora indica il periodo.
+- **All'apertura** la lista parte dal **mese in corso**. Nella stessa sessione del browser ricorda l'ultimo
+  mese scelto.
+- **Cancella filtri** non tocca il mese, perché il mese non è un filtro.
+- **Ricerca dall'esercente e "Da revisionare" dalla dashboard:** guardano tutti i mesi.
+- **Link a un mese:** `/expenses?month=AAAA-MM` apre direttamente quel mese.
+
 ### Filtri sempre visibili
 - **Tutti / Uscite / Entrate**
-- **Periodo**: Tutto, Questo mese, Mese scorso, Ultimi 3 mesi, Ultimi 12 mesi, Quest'anno, Anno scorso, Date…
+- **Periodo**: Un mese (quello della barra in alto), Tutto, Ultimi 3 / 6 / 12 / 24 / 36 mesi, Quest'anno, Anno scorso, Date…
 - **Ricerca libera**: cerca in descrizione, note, descrizione originale della banca, categoria e membro.
   Più parole vanno tutte trovate.
 - **⚠️ Da revisionare (N)**: mostra solo i movimenti categorizzati senza una regola sicura.
@@ -172,6 +203,7 @@ Gli stessi totali compaiono anche **sotto ogni tabella**. Valgono per tutte le r
 Righe di totale anche nelle altre pagine:
 - **Dashboard → 📅 Totali per mese:** una riga per mese, dal più recente, con entrate, uscite, saldo e numero
   di movimenti. In fondo ci sono il totale di tutti i mesi e la media mensile. Ricariche e trasferimenti esclusi.
+  Il mese in corso è evidenziato (sfondo blu ed etichetta "In corso"). **Un clic su un mese** apre Movimenti su quel mese.
 - **Dashboard → Spese per membro, Spese per categoria, Spese per persona:** riga "Totale" in fondo.
 - **Report → Dati mensili dettagliati:** totale e media mensile del periodo selezionato.
 
@@ -192,7 +224,10 @@ Un clic su **qualsiasi riga di movimento** apre una finestra con tutti i dettagl
   categoria (modificabile), chi ha pagato, carta o conto, origine, tipo operazione e stato della banca,
   esercente con il numero e il totale dei suoi movimenti, descrizione originale della banca e note.
 - **Azioni:** Modifica, Escludi/Conta nei totali, Revisionato, Elimina.
-- **Esercente:** il link sull'esercente apre la lista già filtrata su quell'esercente (`/expenses?search=…`).
+- **Esercente:** il link "N movimenti · totale" apre, dentro la finestra, l'elenco dei movimenti di quell'esercente
+  (stesso tipo, dal più recente), con il totale. Un clic su una riga passa al dettaglio di quel movimento.
+  **Apri in Movimenti** porta alla lista cercando il nome (`/expenses?search=…`). Funziona anche se la lista è
+  già aperta, e trova anche i movimenti che citano il nome nella descrizione della banca.
 - **Come si chiude:** tasto Esc, la X o un clic fuori dalla finestra.
 - **Controlli della riga:** i clic su tendine e pulsanti dentro la riga fanno la loro azione e non aprono
   la finestra.
@@ -202,8 +237,17 @@ Un clic su **qualsiasi riga di movimento** apre una finestra con tutti i dettagl
 ## 6. Dashboard e report
 
 - **Dashboard**: entrate, uscite e saldo del mese corrente con le medie mensili, saldo complessivo,
-  grafico entrate/uscite degli ultimi 12 mesi, distribuzione per categoria, andamento degli ultimi 30 giorni,
+  grafico entrate/uscite per mese, distribuzione per categoria, andamento degli ultimi 30 giorni,
   movimenti recenti.
+- **Grafico "Entrate e uscite per mese"**:
+  - **Periodo:** si sceglie dal menu: ultimi 6, 12, 24 o 36 mesi, Tutto, oppure "Da mese… a mese…" con due
+    selettori.
+  - **Mesi senza movimenti:** compaiono vuoti, così l'asse del tempo resta regolare.
+  - **Riepilogo:** sotto il titolo ci sono il periodo, le entrate, le uscite, il saldo e la media delle uscite
+    al mese.
+  - **Clic su un mese:** apre Movimenti su quel mese.
+  - **Scelta ricordata:** la scelta resta nel browser (`localStorage`, chiave `dashboardChartRange`).
+- **Report**: periodo da 3 mesi a 36 mesi, oppure Tutto.
 - **Report**: entrate contro uscite mese per mese, andamento per membro, budget mensili per categoria.
   Usano solo le uscite reali.
 
@@ -240,6 +284,17 @@ sempre lo stesso id: è così che i reimport saltano i doppioni.
 | `bankSpacingFixed` | `1` dopo la riparazione una tantum degli spazi spuri |
 
 L'export JSON (Impostazioni → Esporta, versione `3.0`) contiene tutto questo e si può reimportare.
+
+**Importare un export da un altro browser o PC** (es. lavoro fatto su Chrome, importato su Edge):
+- **Movimenti nuovi:** vengono aggiunti.
+- **Movimenti già presenti** (stesso id): vengono **aggiornati** con categoria, note, revisione, trasferimento ecc.
+  del file. Ogni modifica fatta nell'app salva `updatedAt`. Se entrambe le versioni ce l'hanno vince la più
+  recente; se ce l'ha solo quella locale resta quella locale. Un export vecchio, quindi, non cancella il
+  lavoro fatto dopo.
+- **Regole esercente → categoria e proprietari delle carte:** vince il file.
+- **Categorie:** icona e colore delle categorie con lo stesso nome vengono presi dal file.
+- **Prima di questa versione** i movimenti già presenti venivano saltati, quindi le categorie cambiate
+  sull'altro browser non arrivavano.
 I file in versione `2.0` e quelli vecchi con le sole spese restano compatibili.
 
 ### Dove finiscono export e archivi

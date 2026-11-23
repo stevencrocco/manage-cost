@@ -37,9 +37,27 @@
   <!-- Grafici -->
   <div class="charts-grid">
     <div class="card chart-card chart-wide">
-      <div class="card-head">
-        <h2>Entrate e uscite per mese</h2>
-        <span class="card-hint">Ultimi 12 mesi</span>
+      <div class="card-head chart-head">
+        <div>
+          <h2>Entrate e uscite per mese</h2>
+          <span class="card-hint">{{ chartPeriodLabel }} · clicca un mese per vederne i movimenti</span>
+        </div>
+        <div class="chart-period">
+          <select [(ngModel)]="chartRange" (ngModelChange)="onChartRangeChange()" aria-label="Periodo del grafico">
+            <option *ngFor="let r of chartRanges" [value]="r.value">{{ r.label }}</option>
+          </select>
+          <ng-container *ngIf="chartRange === 'custom'">
+            <input type="month" [(ngModel)]="chartFrom" (ngModelChange)="onChartRangeChange()" aria-label="Dal mese" title="Dal mese" />
+            <span class="muted">→</span>
+            <input type="month" [(ngModel)]="chartTo" (ngModelChange)="onChartRangeChange()" aria-label="Al mese" title="Al mese" />
+          </ng-container>
+        </div>
+      </div>
+      <div class="chart-totals">
+        <span>Entrate <strong class="pos">{{ formatCurrency(chartTotals.income) }}</strong></span>
+        <span>Uscite <strong class="neg">{{ formatCurrency(chartTotals.expenses) }}</strong></span>
+        <span>Saldo <strong [class.pos]="chartTotals.balance >= 0" [class.neg]="chartTotals.balance < 0">{{ formatCurrency(chartTotals.balance) }}</strong></span>
+        <span *ngIf="chartTotals.months > 1">Media uscite <strong>{{ formatCurrency(chartTotals.expenses / chartTotals.months) }}</strong> / mese</span>
       </div>
       <div class="chart-container">
         <canvas baseChart [data]="barChartData" [type]="barChartType" [options]="barChartOptions"></canvas>
@@ -110,7 +128,7 @@
   <div class="card card-flush section" *ngIf="monthlyRows.length > 0">
     <div class="card-head padded">
       <h2>Totali per mese</h2>
-      <span class="card-hint">Ricariche carta e trasferimenti esclusi</span>
+      <span class="card-hint">Clicca un mese per vederne i movimenti · ricariche carta e trasferimenti esclusi</span>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -124,8 +142,9 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let r of monthlyRows">
-            <td>{{ r.label }}</td>
+          <tr *ngFor="let r of monthlyRows" class="row-link" [class.current-month]="r.key === currentMonthKey"
+              (click)="openMonth(r.key)" tabindex="0" (keydown.enter)="openMonth(r.key)" [title]="'Apri i movimenti di ' + r.label">
+            <td>{{ r.label }}<span *ngIf="r.key === currentMonthKey" class="badge badge-current">In corso</span></td>
             <td class="num pos">{{ formatCurrency(r.income) }}</td>
             <td class="num neg">{{ formatCurrency(r.expenses) }}</td>
             <td class="num" [class.pos]="r.balance >= 0" [class.neg]="r.balance < 0">{{ formatCurrency(r.balance) }}</td>
@@ -174,6 +193,7 @@
             <div class="tree-child-item row-link" *ngFor="let expense of item.expenses" (click)="detail.openFromRow($event, expense.id)" tabindex="0" (keydown.enter)="detail.openFromRow($event, expense.id)" title="Apri i dettagli">
               <span class="tree-child-date">{{ formatDate(expense.date) }}</span>
               <span class="tree-child-description">{{ expense.description }}<span class="tree-child-meta"> · {{ expense.paidBy }}</span></span>
+              <span class="tree-child-pay"><app-payment [expense]="expense" [inline]="true" /></span>
               <span class="tree-child-amount">{{ formatCurrency(expense.amount) }}</span>
               <button class="icon-btn" (click)="editExpense(expense.id)" title="Modifica">
                 <lucide-icon [img]="I.edit" [size]="15" />
@@ -211,6 +231,7 @@
             <div class="tree-child-item row-link" *ngFor="let expense of item.expenses" (click)="detail.openFromRow($event, expense.id)" tabindex="0" (keydown.enter)="detail.openFromRow($event, expense.id)" title="Apri i dettagli">
               <span class="tree-child-date">{{ formatDate(expense.date) }}</span>
               <span class="tree-child-description">{{ expense.description }}<span class="tree-child-meta"> · {{ expense.category }}</span></span>
+              <span class="tree-child-pay"><app-payment [expense]="expense" [inline]="true" /></span>
               <span class="tree-child-amount">{{ formatCurrency(expense.amount) }}</span>
               <button class="icon-btn" (click)="editExpense(expense.id)" title="Modifica">
                 <lucide-icon [img]="I.edit" [size]="15" />
@@ -236,20 +257,23 @@
       <button class="btn-link" (click)="navigateToExpenses()">Vedi tutti</button>
     </div>
 
-    <table class="data-table" *ngIf="recentExpenses.length > 0; else noExpenses">
+    <div class="table-scroll" *ngIf="recentExpenses.length > 0; else noExpenses">
+    <table class="data-table">
       <thead>
-        <tr><th>Data</th><th>Descrizione</th><th class="hide-mobile">Categoria</th><th class="hide-mobile">Membro</th><th class="num">Importo</th></tr>
+        <tr><th>Data</th><th>Descrizione</th><th class="hide-mobile">Categoria</th><th class="hide-mobile">Pagamento</th><th class="hide-mobile">Membro</th><th class="num">Importo</th></tr>
       </thead>
       <tbody>
         <tr *ngFor="let expense of recentExpenses" class="row-link" (click)="detail.openFromRow($event, expense.id)" tabindex="0" (keydown.enter)="detail.openFromRow($event, expense.id)" title="Apri i dettagli">
           <td class="nowrap">{{ formatDate(expense.date) }}</td>
-          <td>{{ expense.description }}</td>
+          <td>{{ expense.description }}<div class="mobile-only mobile-pay"><app-payment [expense]="expense" [inline]="true" /></div></td>
           <td class="hide-mobile"><span class="cat-cell"><app-category-icon [icon]="categoryByName(expense.category)?.icon" [name]="expense.category" [color]="categoryByName(expense.category)?.color" size="sm" />{{ expense.category }}</span></td>
+          <td class="hide-mobile nowrap"><app-payment [expense]="expense" /></td>
           <td class="hide-mobile muted">{{ expense.paidBy }}</td>
           <td class="num" [class.pos]="isIncome(expense)">{{ isIncome(expense) ? '+' : '−' }}{{ formatCurrency(expense.amount) }}</td>
         </tr>
       </tbody>
     </table>
+    </div>
 
     <ng-template #noExpenses>
       <div class="empty-state">

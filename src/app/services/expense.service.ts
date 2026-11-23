@@ -187,7 +187,7 @@ export class ExpenseService {
     if (index !== -1) {
       const current = this.expenses[index];
       const reviewed = expense.category !== undefined && expense.category !== current.category;
-      const updated: Expense = { ...current, ...expense, ...(reviewed ? { needsReview: false } : {}) };
+      const updated: Expense = { ...current, ...expense, ...(reviewed ? { needsReview: false } : {}), updatedAt: new Date().toISOString() };
       // Le ricariche della prepagata restano sempre fuori dai totali
       if (isCardTopUp(updated)) updated.isTransfer = true;
       this.expenses[index] = updated;
@@ -219,10 +219,11 @@ export class ExpenseService {
 
     let count = 0;
     const type = target.type ?? 'uscita';
+    const now = new Date().toISOString();
     this.expenses = this.expenses.map(e => {
       if (e.merchant === target.merchant && (e.type ?? 'uscita') === type && !e.isTransfer) {
         count++;
-        return { ...e, category, needsReview: false };
+        return { ...e, category, needsReview: false, updatedAt: now };
       }
       return e;
     });
@@ -509,7 +510,13 @@ export class ExpenseService {
       if (data && !Array.isArray(data) && (data.version === '2.0' || data.version === '3.0')) {
         if (Array.isArray(data.categories)) {
           data.categories.forEach((cat: any) => {
-            if (cat.name && !this.categories.find(c => c.name === cat.name)) {
+            const existing = cat.name ? this.categories.find(c => c.name === cat.name) : undefined;
+            if (existing) {
+              // Stessa categoria: prende icona e colore del file
+              if ((cat.icon && cat.icon !== existing.icon) || (cat.color && cat.color !== existing.color)) {
+                this.updateCategory(existing.id, { icon: cat.icon || existing.icon, color: cat.color || existing.color });
+              }
+            } else if (cat.name) {
               this.addCategory({
                 name: cat.name,
                 icon: cat.icon || '📦',
@@ -530,12 +537,13 @@ export class ExpenseService {
           });
         }
 
+        // Regole e carte: vince il file importato (è il lavoro fatto sull'altro browser)
         if (data.categoryRules && typeof data.categoryRules === 'object') {
-          this.categoryRules = { ...data.categoryRules, ...this.categoryRules };
+          this.categoryRules = { ...this.categoryRules, ...data.categoryRules };
           localStorage.setItem(KEYS.rules, JSON.stringify(this.categoryRules));
         }
         if (data.cardOwners && typeof data.cardOwners === 'object') {
-          this.cardOwners = { ...data.cardOwners, ...this.cardOwners };
+          this.cardOwners = { ...this.cardOwners, ...data.cardOwners };
           localStorage.setItem(KEYS.cardOwners, JSON.stringify(this.cardOwners));
         }
 
@@ -574,19 +582,18 @@ export class ExpenseService {
 
     const validExpenses: Expense[] = [];
     const errors: string[] = [];
-    // Id già presenti (in archivio o in questo file): evita doppioni reimportando lo stesso backup
-    const knownIds = new Set(this.expenses.map(e => e.id));
+    // Id già presenti: non si duplicano, ma si aggiornano con le modifiche del file (categoria, note, ecc.)
+    const byId = new Map(this.expenses.map((e, i) => [e.id, i] as const));
+    const seenInFile = new Set<string>();
     let duplicates = 0;
+    let updated = 0;
 
     expenses.forEach((exp, index) => {
       if (!exp || !exp.description || !exp.amount || !exp.category || !exp.date || !exp.paidBy) {
         errors.push(`Movimento ${index + 1}: campi obbligatori mancanti`);
         return;
       }
-      if (exp.id && knownIds.has(exp.id)) {
-        duplicates++;
-        return;
-      }
+      if (exp.id && seenInFile.has(exp.id)) return;
 
       const validExpense: Expense = {
         ...exp,
@@ -605,13 +612,27 @@ export class ExpenseService {
         return;
       }
 
-      knownIds.add(validExpense.id);
+      seenInFile.add(validExpense.id);
+
+      const pos = byId.get(validExpense.id);
+      if (pos !== undefined) {
+        const current = this.expenses[pos];
+        if (this.importWins(validExpense, current)) {
+          const merged: Expense = { ...current, ...validExpense };
+          if (isCardTopUp(merged)) merged.isTransfer = true;
+          this.expenses[pos] = merged;
+          updated++;
+        } else {
+          duplicates++;
+        }
+        return;
+      }
       validExpenses.push(validExpense);
     });
 
-    if (validExpenses.length === 0) {
+    if (validExpenses.length === 0 && updated === 0) {
       if (duplicates > 0 && errors.length === 0) {
-        return { success: true, message: `Nessun nuovo movimento: tutti i ${duplicates} erano già presenti.`, count: 0 };
+        return { success: true, message: `Nessuna novità: i ${duplicates} movimenti del file sono già presenti, uguali o modificati più di recente qui.`, count: 0 };
       }
       return { success: false, message: 'Nessun movimento valido trovato nel file.\n' + errors.join('\n'), count: 0 };
     }
@@ -619,9 +640,28 @@ export class ExpenseService {
     this.expenses = [...validExpenses, ...this.expenses];
     this.saveExpenses();
 
-    let message = `${validExpenses.length} movimenti importati con successo!`;
-    if (duplicates > 0) message += `\n\n${duplicates} movimenti già presenti sono stati saltati.`;
+    let message = `${validExpenses.length} movimenti nuovi importati.`;
+    if (updated > 0) message += `\n${updated} movimenti già presenti aggiornati (categoria, note, revisione…).`;
+    if (duplicates > 0) message += `\n${duplicates} movimenti già uguali o più recenti qui: lasciati come sono.`;
     if (errors.length > 0) message += `\n\n${errors.length} movimenti ignorati per errori di validazione.`;
-    return { success: true, message, count: validExpenses.length };
+    return { success: true, message, count: validExpenses.length + updated };
+  }
+
+  /** Campi che l'utente può cambiare: se coincidono il movimento è già aggiornato */
+  private static readonly EDITABLE: (keyof Expense)[] =
+    ['description', 'amount', 'category', 'paidBy', 'notes', 'type', 'isTransfer', 'needsReview'];
+
+  /**
+   * La versione del file sostituisce quella presente se è diversa e non più vecchia.
+   * Con le date di modifica vince la più recente; senza (export fatti prima di questa versione)
+   * vince il file, perché importarlo è una scelta esplicita.
+   */
+  private importWins(fromFile: Expense, current: Expense): boolean {
+    const differs = ExpenseService.EDITABLE.some(k => (fromFile[k] ?? '') !== (current[k] ?? '')) ||
+      new Date(fromFile.date).getTime() !== new Date(current.date).getTime();
+    if (!differs) return false;
+    if (fromFile.updatedAt && current.updatedAt) return fromFile.updatedAt >= current.updatedAt;
+    if (current.updatedAt && !fromFile.updatedAt) return false;
+    return true;
   }
 }

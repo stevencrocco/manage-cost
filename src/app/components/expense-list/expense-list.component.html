@@ -6,6 +6,50 @@
     </div>
   </div>
 
+  <!-- Mese in evidenza -->
+  <div class="card month-bar" [class.is-current]="isCurrentMonth()">
+    <div class="month-nav">
+    @if (period === 'month') {
+      <button class="icon-btn" (click)="shiftMonth(-1)" title="Mese precedente" aria-label="Mese precedente">
+        <lucide-icon [img]="I.chevronLeft" [size]="20" />
+      </button>
+    }
+    <div class="month-heading">
+      <span class="month-eyebrow">
+        @if (isCurrentMonth()) {
+          <span class="live-dot"></span>Mese in corso
+        } @else if (period === 'month') {
+          Mese selezionato
+        } @else {
+          Periodo
+        }
+      </span>
+      <h2 class="month-title">{{ periodTitle() }}</h2>
+    </div>
+    @if (period === 'month') {
+      <button class="icon-btn" (click)="shiftMonth(1)" [disabled]="!canGoNext()" title="Mese successivo" aria-label="Mese successivo">
+        <lucide-icon [img]="I.chevron" [size]="20" />
+      </button>
+    }
+    </div>
+
+    <div class="month-summary">
+      <span>Entrate <strong class="pos">{{ formatCurrency(totals.income) }}</strong></span>
+      <span>Uscite <strong class="neg">{{ formatCurrency(totals.expenses) }}</strong></span>
+      <span>Saldo <strong [class.pos]="totals.balance >= 0" [class.neg]="totals.balance < 0">{{ formatCurrency(totals.balance) }}</strong></span>
+    </div>
+
+    <div class="month-actions">
+      <input type="month" class="month-picker" [ngModel]="period === 'month' ? selectedMonth : ''" (ngModelChange)="selectMonth($event)" aria-label="Scegli il mese" title="Scegli il mese" />
+      @if (!isCurrentMonth()) {
+        <button class="btn-secondary" (click)="goToCurrentMonth()">Mese in corso</button>
+      }
+      @if (period === 'month') {
+        <button class="btn-link" (click)="setPeriod('all')">Tutti i mesi</button>
+      }
+    </div>
+  </div>
+
   <!-- Barra filtri -->
   <div class="card toolbar">
     <div class="quick-bar">
@@ -155,7 +199,7 @@
           <span class="badge badge-warn" *ngIf="expense.needsReview">Da revisionare</span>
           <span class="badge" *ngIf="expense.isTransfer">{{ isTopUp(expense) ? 'Ricarica carta · esclusa' : 'Trasferimento' }}</span>
         </div>
-        <div class="expense-meta">{{ expense.paidBy }}<span *ngIf="expense.card"> · {{ cardLabel(expense.card) }}</span></div>
+        <div class="expense-meta pay-meta"><app-payment [expense]="expense" [inline]="true" /><span> · {{ expense.paidBy }}</span></div>
         <div class="expense-meta" *ngIf="expense.notes">{{ expense.notes }}</div>
         <div class="bank-desc" *ngIf="expense.bankDescription">{{ expense.bankDescription }}</div>
       </div>
@@ -186,6 +230,7 @@
               <th (click)="sortBy('date')" class="sortable">Data <span class="sort-icon">{{ sortIcon('date') }}</span></th>
               <th (click)="sortBy('description')" class="sortable">Descrizione <span class="sort-icon">{{ sortIcon('description') }}</span></th>
               <th (click)="sortBy('category')" class="sortable">Categoria <span class="sort-icon">{{ sortIcon('category') }}</span></th>
+              <th (click)="sortBy('payment')" class="sortable hide-mobile">Pagamento <span class="sort-icon">{{ sortIcon('payment') }}</span></th>
               <th (click)="sortBy('paidBy')" class="sortable hide-mobile">Pagato da <span class="sort-icon">{{ sortIcon('paidBy') }}</span></th>
               <th (click)="sortBy('amount')" class="sortable num">Importo <span class="sort-icon">{{ sortIcon('amount') }}</span></th>
               <th class="actions-col"><span class="sr-only">Azioni</span></th>
@@ -200,6 +245,7 @@
                   <span class="badge badge-warn" *ngIf="expense.needsReview">Da revisionare</span>
                   <span class="badge" *ngIf="expense.isTransfer">{{ isTopUp(expense) ? 'Ricarica carta · esclusa' : 'Trasferimento' }}</span>
                   <div class="table-notes" *ngIf="expense.notes">{{ expense.notes }}</div>
+                  <div class="mobile-only mobile-pay"><app-payment [expense]="expense" [inline]="true" /></div>
                 </td>
                 <td>
                   <div class="category-select">
@@ -209,6 +255,7 @@
                     </select>
                   </div>
                 </td>
+                <td class="hide-mobile pay-cell"><app-payment [expense]="expense" /></td>
                 <td class="hide-mobile muted">{{ expense.paidBy }}</td>
                 <td class="num amount-cell" [ngClass]="amountClass(expense)">{{ formatSigned(expense) }}</td>
                 <td class="actions-col">
@@ -230,7 +277,7 @@
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="4">
+              <td colspan="5">
                 Totale · {{ filteredExpenses.length }} movimenti filtrati
                 <span class="total-breakdown">
                   Entrate <span class="pos">{{ formatCurrency(totals.income) }}</span>
@@ -262,6 +309,7 @@
               <tr>
                 <th>Data</th>
                 <th>Descrizione</th>
+                <th class="hide-mobile">Pagamento</th>
                 <th class="hide-mobile">Pagato da</th>
                 <th class="num">Importo</th>
                 <th class="actions-col"><span class="sr-only">Azioni</span></th>
@@ -273,7 +321,9 @@
                 <td class="desc-cell">
                   {{ expense.description }}
                   <div class="table-notes" *ngIf="expense.notes">{{ expense.notes }}</div>
+                  <div class="mobile-only mobile-pay"><app-payment [expense]="expense" [inline]="true" /></div>
                 </td>
+                <td class="hide-mobile pay-cell"><app-payment [expense]="expense" /></td>
                 <td class="hide-mobile muted">{{ expense.paidBy }}</td>
                 <td class="num amount-cell" [ngClass]="amountClass(expense)">{{ formatSigned(expense) }}</td>
                 <td class="actions-col">
@@ -290,7 +340,7 @@
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3">Totale {{ group.category }} · {{ group.expenses.length }} movimenti</td>
+                <td colspan="4">Totale {{ group.category }} · {{ group.expenses.length }} movimenti</td>
                 <td class="num" [class.pos]="group.total >= 0" [class.neg]="group.total < 0">{{ formatCurrency(group.total) }}</td>
                 <td></td>
               </tr>
