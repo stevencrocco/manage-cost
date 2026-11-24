@@ -296,14 +296,24 @@
 
     <!-- Raggruppata per categoria -->
     <div *ngIf="groupByCategory" class="grouped">
-      <div *ngFor="let group of groupedItems" class="card table-card category-group">
-        <div class="category-group-header">
+      <div class="group-controls">
+        <span class="muted">{{ groupedItems.length }} categorie · {{ collapsedCount() }} chiuse</span>
+        <button class="btn-link" (click)="expandAllGroups()" [disabled]="collapsedCount() === 0">Espandi tutte</button>
+        <button class="btn-link" (click)="collapseAllGroups()" [disabled]="collapsedCount() === groupedItems.length">Comprimi tutte</button>
+      </div>
+
+      <div *ngFor="let group of groupedItems" class="card table-card category-group" [class.collapsed]="isGroupCollapsed(group.category)">
+        <button type="button" class="category-group-header" (click)="toggleGroup(group.category)"
+                [attr.aria-expanded]="!isGroupCollapsed(group.category)"
+                [title]="isGroupCollapsed(group.category) ? 'Clicca per espandere' : 'Clicca per comprimere'">
+          <lucide-icon class="group-chevron" [img]="I.chevron" [size]="18" />
           <app-category-icon [icon]="getCategoryIcon(group.category)" [name]="group.category" [color]="getCategoryColor(group.category)" />
           <h3>{{ group.category }}</h3>
-          <span class="badge">{{ group.expenses.length }}</span>
+          <span class="badge">{{ group.expenses.length }} {{ group.expenses.length === 1 ? 'movimento' : 'movimenti' }}</span>
+          <span class="group-hint">{{ isGroupCollapsed(group.category) ? 'Espandi' : 'Comprimi' }}</span>
           <span class="category-group-total" [class.pos]="group.total > 0" [class.neg]="group.total < 0">{{ formatCurrency(group.total) }}</span>
-        </div>
-        <div class="table-wrapper">
+        </button>
+        <div class="table-wrapper" *ngIf="!isGroupCollapsed(group.category)">
           <table class="data-table expenses-table">
             <thead>
               <tr>

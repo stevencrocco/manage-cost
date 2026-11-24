@@ -149,6 +149,18 @@ maiuscolo e senza spazi:
 
 ## 5. Lista movimenti (menu **Movimenti**)
 
+### Vista raggruppata per categoria
+Con **Raggruppa per categoria** (solo in vista Tabella) ogni categoria è una scheda che si apre e si chiude:
+
+- **Aprire o chiudere:** clic sull'intestazione. La freccia ruota e, passando col mouse, compare "Espandi" o
+  "Comprimi".
+- **Scheda chiusa:** restano visibili icona, nome, numero di movimenti e **totale** della categoria.
+- **Tutte insieme:** sopra le schede ci sono **Espandi tutte** e **Comprimi tutte**, con il conteggio delle
+  categorie chiuse.
+- **All'apertura** le categorie sono **tutte chiuse**: quando attivi il raggruppamento o torni su Movimenti
+  vedi subito il riepilogo con i totali di ogni categoria.
+- **Totale generale:** il riquadro in fondo resta sempre visibile.
+
 ### Colonna Pagamento
 In tutte le viste dei movimenti c'è la colonna **Pagamento**: tabella, vista raggruppata, schede, finestra di
 dettaglio con l'elenco dello stesso esercente, dashboard (movimenti recenti e alberi per categoria e persona).

@@ -83,6 +83,8 @@ export class ExpenseListComponent implements OnInit {
   sortColumn: SortColumn = 'date';
   sortDirection: 'asc' | 'desc' = 'desc';
   groupByCategory = false;
+  /** Categorie aperte nella vista raggruppata: all'apertura sono tutte chiuse */
+  expandedGroups = new Set<string>();
 
   private destroyRef = inject(DestroyRef);
 
@@ -554,8 +556,32 @@ export class ExpenseListComponent implements OnInit {
     return this.sortColumn === column ? (this.sortDirection === 'asc' ? '↑' : '↓') : '';
   }
 
+  // Gruppi per categoria: espandi / comprimi ------------------------------------
+
+  isGroupCollapsed(category: string): boolean {
+    return !this.expandedGroups.has(category);
+  }
+
+  toggleGroup(category: string): void {
+    if (this.expandedGroups.has(category)) this.expandedGroups.delete(category);
+    else this.expandedGroups.add(category);
+  }
+
+  expandAllGroups(): void {
+    this.expandedGroups = new Set(this.groupedItems.map(g => g.category));
+  }
+
+  collapseAllGroups(): void {
+    this.expandedGroups.clear();
+  }
+
+  collapsedCount(): number {
+    return this.groupedItems.filter(g => !this.expandedGroups.has(g.category)).length;
+  }
+
   toggleGrouping(): void {
     this.groupByCategory = !this.groupByCategory;
+    this.expandedGroups.clear();
     this.currentPage = 1;
     this.refreshView();
   }
